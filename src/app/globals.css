@@ -1,0 +1,246 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: var(--font-sans);
+  --font-heading: var(--font-heading);
+  --font-mono: var(--font-mono);
+  --font-serif: var(--font-serif);
+
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* ============================================================================
+   LUMEN — warm paper canvas · pine-green ink · gold highlighter accent
+   ============================================================================ */
+
+:root {
+  --radius: 0.75rem;
+
+  --background: oklch(0.9834 0.0064 95);
+  --foreground: oklch(0.26 0.018 165);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.26 0.018 165);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.26 0.018 165);
+
+  --primary: oklch(0.49 0.095 162);
+  --primary-foreground: oklch(0.988 0.012 95);
+  --secondary: oklch(0.935 0.023 150);
+  --secondary-foreground: oklch(0.34 0.042 162);
+  --muted: oklch(0.956 0.011 120);
+  --muted-foreground: oklch(0.5 0.026 162);
+  --accent: oklch(0.855 0.148 88);
+  --accent-foreground: oklch(0.3 0.05 80);
+  --destructive: oklch(0.577 0.205 27.3);
+
+  --border: oklch(0.9 0.014 130);
+  --input: oklch(0.9 0.014 130);
+  --ring: oklch(0.49 0.095 162);
+
+  --chart-1: oklch(0.49 0.095 162);
+  --chart-2: oklch(0.61 0.12 158);
+  --chart-3: oklch(0.855 0.148 88);
+  --chart-4: oklch(0.7 0.13 130);
+  --chart-5: oklch(0.42 0.08 200);
+
+  --sidebar: oklch(0.97 0.012 140);
+  --sidebar-foreground: oklch(0.26 0.018 165);
+  --sidebar-primary: oklch(0.49 0.095 162);
+  --sidebar-primary-foreground: oklch(0.988 0.012 95);
+  --sidebar-accent: oklch(0.855 0.148 88);
+  --sidebar-accent-foreground: oklch(0.3 0.05 80);
+  --sidebar-border: oklch(0.89 0.016 135);
+  --sidebar-ring: oklch(0.49 0.095 162);
+
+  --shadow-color: 160 25% 25%;
+  --shadow-opacity: 0.08;
+}
+
+.dark {
+  --background: oklch(0.205 0.014 165);
+  --foreground: oklch(0.935 0.012 95);
+  --card: oklch(0.245 0.016 165);
+  --card-foreground: oklch(0.935 0.012 95);
+  --popover: oklch(0.245 0.016 165);
+  --popover-foreground: oklch(0.935 0.012 95);
+
+  --primary: oklch(0.715 0.135 160);
+  --primary-foreground: oklch(0.205 0.018 165);
+  --secondary: oklch(0.3 0.022 162);
+  --secondary-foreground: oklch(0.935 0.012 95);
+  --muted: oklch(0.275 0.015 165);
+  --muted-foreground: oklch(0.715 0.02 130);
+  --accent: oklch(0.81 0.145 88);
+  --accent-foreground: oklch(0.3 0.05 80);
+  --destructive: oklch(0.6368 0.2078 25.3);
+
+  --border: oklch(0.305 0.018 165);
+  --input: oklch(0.305 0.018 165);
+  --ring: oklch(0.715 0.135 160);
+
+  --chart-1: oklch(0.715 0.135 160);
+  --chart-2: oklch(0.61 0.12 158);
+  --chart-3: oklch(0.81 0.145 88);
+  --chart-4: oklch(0.7 0.13 130);
+  --chart-5: oklch(0.55 0.09 200);
+
+  --sidebar: oklch(0.245 0.016 165);
+  --sidebar-foreground: oklch(0.935 0.012 95);
+  --sidebar-primary: oklch(0.715 0.135 160);
+  --sidebar-primary-foreground: oklch(0.205 0.018 165);
+  --sidebar-accent: oklch(0.81 0.145 88);
+  --sidebar-accent-foreground: oklch(0.3 0.05 80);
+  --sidebar-border: oklch(0.305 0.018 165);
+  --sidebar-ring: oklch(0.715 0.135 160);
+
+  --shadow-color: 160 30% 4%;
+  --shadow-opacity: 0.3;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  .font-heading {
+    font-family: var(--font-heading), var(--font-sans), sans-serif;
+    letter-spacing: -0.02em;
+  }
+}
+
+/* ============================================================================
+   SIGNATURE UTILITIES — the "textbook" personality. Use sparingly.
+   ============================================================================ */
+
+@layer utilities {
+  /* Gold highlighter swipe behind text. Reserve for ONE key phrase per view. */
+  .marker {
+    background-image: linear-gradient(
+      104deg,
+      transparent 0.5%,
+      color-mix(in oklch, var(--accent) 85%, transparent) 1.5%,
+      color-mix(in oklch, var(--accent) 85%, transparent) 98%,
+      transparent 99%
+    );
+    background-repeat: no-repeat;
+    background-size: 100% 45%;
+    background-position: 0 85%;
+    padding: 0 0.15em;
+    color: var(--foreground);
+  }
+
+  /* Mono, uppercase, wide-tracked kicker label above section headings. */
+  .eyebrow {
+    font-family: var(--font-mono), monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--muted-foreground);
+  }
+
+  /* Padded-left heading with a short accent rule to its left. */
+  .margin-note {
+    position: relative;
+    padding-left: 1rem;
+  }
+  .margin-note::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.15em;
+    bottom: 0.15em;
+    width: 3px;
+    border-radius: 9999px;
+    background: var(--accent);
+  }
+
+  /* Faint repeating ruled-paper horizontal lines. Use once, behind a hero. */
+  .paper-lines {
+    background-image: repeating-linear-gradient(
+      to bottom,
+      transparent,
+      transparent calc(1.75rem - 1px),
+      color-mix(in oklch, var(--border) 60%, transparent) calc(1.75rem - 1px),
+      color-mix(in oklch, var(--border) 60%, transparent) 1.75rem
+    );
+  }
+
+  /* Page-load reveal: rises 14px + fades in. */
+  .reveal {
+    animation: reveal-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@keyframes reveal-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
