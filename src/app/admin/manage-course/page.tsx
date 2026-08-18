@@ -1,63 +1,62 @@
-import Link from "next/link";
 import prisma from "@/lib/prisma";
 import { DashboardHeading } from "@/components/dashboard/stat-card";
-import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { formatBdt, effectivePrice } from "@/lib/format";
+import { CourseManager } from "@/components/admin/course-manager";
 
 export const dynamic = "force-dynamic";
 
 export default async function ManageCoursePage() {
-  const courses = await prisma.course.findMany({
-    where: { deletedAt: null },
-    orderBy: { createdAt: "desc" },
-    include: {
-      category: { select: { name: true } },
-      author: { select: { fullName: true } },
-      _count: { select: { enrollments: true } },
-    },
-  });
+  const [courses, categories, authors, certificateTemplates, quizzes, assignments] =
+    await Promise.all([
+      prisma.course.findMany({
+        where: { deletedAt: null },
+        orderBy: { createdAt: "desc" },
+        include: {
+          category: { select: { name: true } },
+          author: { select: { fullName: true } },
+          instructors: {
+            orderBy: { order: "asc" },
+            select: { userId: true, category: true },
+          },
+          _count: { select: { enrollments: true } },
+        },
+      }),
+      prisma.courseCategory.findMany({
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      }),
+      prisma.user.findMany({
+        where: { deletedAt: null, role: { in: ["ADMIN", "INSTRUCTOR"] } },
+        orderBy: { fullName: "asc" },
+        select: { id: true, fullName: true },
+      }),
+      prisma.certificateTemplate.findMany({
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      }),
+      prisma.quiz.findMany({
+        orderBy: { createdAt: "desc" },
+        select: { id: true, title: true },
+      }),
+      prisma.assignment.findMany({
+        orderBy: { createdAt: "desc" },
+        select: { id: true, title: true },
+      }),
+    ]);
+
+  const courseOptions = courses.map((c) => ({ id: c.id, title: c.title }));
 
   return (
     <div>
-      <DashboardHeading title="Courses" subtitle="All courses on the platform." />
-      <div className="overflow-x-auto rounded-xl border border-border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Title</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Author</TableHead>
-              <TableHead>Price</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Enrolled</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {courses.map((c) => (
-              <TableRow key={c.id}>
-                <TableCell className="font-medium">
-                  <Link href={`/courseDetails/${c.id}`} className="hover:text-primary">{c.title}</Link>
-                </TableCell>
-                <TableCell className="text-muted-foreground">{c.category?.name ?? "—"}</TableCell>
-                <TableCell className="text-muted-foreground">{c.author?.fullName ?? "—"}</TableCell>
-                <TableCell>{c.isFree ? "Free" : formatBdt(effectivePrice(c))}</TableCell>
-                <TableCell>
-                  <Badge variant={c.status === "PUBLISHED" ? "default" : "secondary"}>{c.status}</Badge>
-                </TableCell>
-                <TableCell>{c._count.enrollments}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+      <DashboardHeading title="Courses" subtitle="Create and manage courses on the platform." />
+      <CourseManager
+        courses={JSON.parse(JSON.stringify(courses))}
+        categories={categories}
+        authors={authors}
+        certificateTemplates={certificateTemplates}
+        courseOptions={courseOptions}
+        quizzes={quizzes}
+        assignments={assignments}
+      />
     </div>
   );
 }

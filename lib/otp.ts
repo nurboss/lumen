@@ -2,6 +2,8 @@ import "server-only";
 import { randomInt } from "node:crypto";
 import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
+import { sendEmail } from "@/lib/email/send";
+import { otpEmail } from "@/lib/email/templates";
 
 export type OtpPurpose = "REGISTER" | "RESET";
 
@@ -40,8 +42,12 @@ export async function issueOtp(
     data: { identifier, purpose, codeHash, expiresAt },
   });
 
-  // Pluggable delivery — for now, log to the server console.
-  await sendOtp(identifier, code, purpose);
+  // Deliver the code. If email delivery fails, surface it — otherwise the user
+  // is stuck on a "code sent" screen for a code that never arrives.
+  const delivered = await sendOtp(identifier, code, purpose);
+  if (!delivered.ok) {
+    return { error: delivered.error };
+  }
 
   return { code };
 }
@@ -86,7 +92,22 @@ export async function verifyOtp(
   return { ok: true };
 }
 
-/** Delivery stub. Swap for email/SMS provider later. */
-async function sendOtp(identifier: string, code: string, purpose: OtpPurpose) {
+/**
+ * Deliver an OTP. Email identifiers go out via Resend; phone identifiers fall
+ * back to the console stub until an SMS provider is wired up.
+ */
+async function sendOtp(
+  identifier: string,
+  code: string,
+  purpose: OtpPurpose
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (/\S+@\S+\.\S+/.test(identifier)) {
+    const res = await sendEmail(identifier, otpEmail(code, purpose));
+    if (!res.ok) {
+      return { ok: false, error: "We couldn't send the code. Check the email address and try again." };
+    }
+    return { ok: true };
+  }
   console.log(`[otp] (${purpose}) code for ${identifier}: ${code}`);
+  return { ok: true };
 }

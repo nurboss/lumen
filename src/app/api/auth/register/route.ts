@@ -2,6 +2,8 @@ import { ok, fail, handler } from "@/lib/api";
 import { verifyOtp } from "@/lib/otp";
 import { registerSchema, isEmail } from "@/lib/validators/auth";
 import { hashPassword, createSession } from "@/lib/auth";
+import { sendEmail } from "@/lib/email/send";
+import { welcomeEmail } from "@/lib/email/templates";
 import prisma from "@/lib/prisma";
 
 export const POST = handler(async (req: Request) => {
@@ -41,6 +43,11 @@ export const POST = handler(async (req: Request) => {
         : {}),
     },
   });
+
+  // Welcome / application-received email (best-effort, email accounts only).
+  if (email) {
+    await sendEmail(email, welcomeEmail(fullName, status === "PENDING"));
+  }
 
   // Only log in immediately if the account is active (students).
   if (status === "ACTIVE") {

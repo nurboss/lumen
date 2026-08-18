@@ -76,6 +76,11 @@ enum VideoProvider {
   UPLOAD
 }
 
+enum InstructorRole {
+  LEAD
+  SUPPORT
+}
+
 enum UnitType {
   VIDEO
   LIVE
@@ -198,6 +203,7 @@ model User {
   studentLinks      ParentStudent[]    @relation("StudentSide")
 
   authoredCourses Course[]         @relation("CourseAuthor")
+  courseAssignments CourseInstructor[]
   enrollments     Enrollment[]
   quizResults     QuizResult[]
   randomResults   RandomQuizResult[]
@@ -349,8 +355,9 @@ model Course {
   slug       String  @unique
 
   description     String? // HTML
-  whatWillLearn   Json? // string[]
-  aboutFaq        Json? // [{ title, answer }]
+  whatWillLearn   Json? // string[]  (what will be taught)
+  aboutFaq        Json? // [{ title, answer }]  (about course)
+  faq             Json? // [{ title, answer }]  (FAQ)
   categoryId      String?
   category        CourseCategory? @relation(fields: [categoryId], references: [id])
   authorId        String?
@@ -394,6 +401,7 @@ model Course {
   certificateTemplate         CertificateTemplate? @relation(fields: [certificateTemplateId], references: [id])
   badgeTitle                  String?
   badgePercentage             Int?
+  badgeImageUrl               String? // excellence badge image
 
   // Advanced
   prerequisiteCourseId String?
@@ -405,6 +413,7 @@ model Course {
 
   // Relations
   sections    Section[]
+  instructors CourseInstructor[]
   batches     Batch[]
   enrollments Enrollment[]
   forum       Forum?
@@ -438,6 +447,20 @@ model BundleItem {
   course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   @@unique([bundleId, courseId])
+}
+
+// Instructors assigned to a course (lead / support), repeatable + ordered
+model CourseInstructor {
+  id       String         @id @default(cuid())
+  courseId String
+  course   Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category InstructorRole @default(LEAD)
+  order    Int            @default(0)
+
+  @@unique([courseId, userId])
+  @@index([courseId, order])
 }
 
 // A scheduled run of a course

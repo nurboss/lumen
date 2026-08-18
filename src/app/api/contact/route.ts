@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { ok, fail, handler } from "@/lib/api";
 import prisma from "@/lib/prisma";
+import { sendEmail, contactNotifyAddress } from "@/lib/email/send";
+import { contactNotificationEmail, contactAckEmail } from "@/lib/email/templates";
 
 const schema = z.object({
   name: z.string().trim().min(2).max(120),
@@ -24,6 +26,18 @@ export const POST = handler(async (req: Request) => {
       message,
     },
   });
+
+  // Notify the team (best-effort) and acknowledge the sender if they left an email.
+  const notify = contactNotifyAddress();
+  if (notify) {
+    await sendEmail(
+      notify,
+      contactNotificationEmail({ name, email, phone, subject, message })
+    );
+  }
+  if (email) {
+    await sendEmail(email, contactAckEmail(name));
+  }
 
   return ok({ received: true });
 });
