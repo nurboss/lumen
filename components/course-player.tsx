@@ -3,16 +3,19 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import ReactPlayer from "react-player";
-import { CheckCircle2, Circle, Lock, ArrowLeft, PlayCircle, FileDown } from "lucide-react";
+import { CheckCircle2, Circle, Lock, ArrowLeft, PlayCircle, FileDown, FileQuestion, ClipboardList } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { postJson } from "@/lib/client-api";
-import type { PlayerData, PlayerUnit } from "@/lib/curriculum";
+import type { PlayerData, PlayerUnit, PlayerItem } from "@/lib/curriculum";
+
+type PlayerUnitItem = Extract<PlayerItem, { kind: "unit" }>;
 
 export function CoursePlayer({ data }: { data: PlayerData }) {
-  const allUnits = useMemo(
-    () => data.sections.flatMap((s) => s.units),
+  const allUnits = useMemo<PlayerUnitItem[]>(
+    () => data.sections.flatMap((s) => s.items.filter((i): i is PlayerUnitItem => i.kind === "unit")),
     [data.sections]
   );
   const firstPlayable =
@@ -168,7 +171,33 @@ export function CoursePlayer({ data }: { data: PlayerData }) {
                   {section.title}
                 </p>
                 <ul>
-                  {section.units.map((unit) => {
+                  {section.items.map((item) => {
+                    if (item.kind === "quiz") {
+                      return (
+                        <li key={`quiz-${item.id}`}>
+                          <Link
+                            href={`/quiz/${item.id}`}
+                            className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-secondary"
+                          >
+                            <FileQuestion className="h-4 w-4 shrink-0 text-muted-foreground" />
+                            <span className="line-clamp-2">{item.title}</span>
+                            <Badge variant="outline" className="ml-auto shrink-0">Quiz</Badge>
+                          </Link>
+                        </li>
+                      );
+                    }
+                    if (item.kind === "assignment") {
+                      return (
+                        <li key={`assignment-${item.id}`}>
+                          <div className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-muted-foreground">
+                            <ClipboardList className="h-4 w-4 shrink-0" />
+                            <span className="line-clamp-2">{item.title}</span>
+                            <Badge variant="outline" className="ml-auto shrink-0">Assignment</Badge>
+                          </div>
+                        </li>
+                      );
+                    }
+                    const unit = item;
                     const isActive = unit.id === active?.id;
                     const done = completedIds.has(unit.id);
                     return (

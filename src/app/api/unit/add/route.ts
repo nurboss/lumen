@@ -24,11 +24,13 @@ export const POST = handler(async (req: Request) => {
 
   await assertCourseManageable(await sectionCourseId(d.sectionId), user);
 
-  const last = await prisma.unit.findFirst({
+  // New unit goes to the end of the section's curriculum.
+  const lastItem = await prisma.sectionItem.findFirst({
     where: { sectionId: d.sectionId },
     orderBy: { order: "desc" },
     select: { order: true },
   });
+  const nextOrder = (lastItem?.order ?? -1) + 1;
 
   const unit = await prisma.unit.create({
     data: {
@@ -41,7 +43,11 @@ export const POST = handler(async (req: Request) => {
       attachmentUrl: d.attachmentUrl || null,
       description: d.description || null,
       duration: d.duration ?? null,
-      order: (last?.order ?? -1) + 1,
+      order: nextOrder,
+      // Record the matching ordered curriculum entry.
+      sectionItem: {
+        create: { sectionId: d.sectionId, kind: "UNIT", order: nextOrder },
+      },
     },
   });
   return ok({ unit });

@@ -41,10 +41,11 @@ export default async function StudentCertificatesPage() {
                     <p className="mt-1 text-sm text-muted-foreground">Issued {formatDate(c.issuedAt)}</p>
                     <Link
                       href={`/certificate/${c.code}`}
-                      className="mt-3 inline-block font-mono text-xs text-primary hover:underline"
+                      className="mt-3 inline-block text-xs font-medium text-primary hover:underline"
                     >
-                      {c.code}
+                      View &amp; download →
                     </Link>
+                    <p className="mt-1 font-mono text-[11px] text-muted-foreground">{c.code}</p>
                   </CardContent>
                 </Card>
               ))}

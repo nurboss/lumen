@@ -1,9 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { Menu, GraduationCap, Search } from "lucide-react";
+import { Menu, GraduationCap, Search, LayoutDashboard, LogOut, User as UserIcon } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -15,8 +24,33 @@ const navLinks = [
   { href: "/forum", label: "Forum" },
 ];
 
-export function Navbar() {
+interface NavbarUser {
+  fullName: string;
+  avatarUrl: string | null;
+}
+
+interface NavbarProps {
+  user?: NavbarUser | null;
+  dashboardHref?: string;
+  profileHref?: string;
+}
+
+export function Navbar({ user = null, dashboardHref = "/", profileHref = "/" }: NavbarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const initials = user
+    ? user.fullName
+        .split(" ")
+        .map((p) => p[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase()
+    : "";
+
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    window.location.href = "/";
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/80 backdrop-blur-md">
@@ -46,12 +80,48 @@ export function Navbar() {
             <Search className="h-5 w-5" />
           </Button>
           <ThemeToggle />
-          <Link href="/login" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "hidden md:inline-flex")}>
-            Login
-          </Link>
-          <Link href="/signUp" className={cn(buttonVariants({ size: "sm" }), "hidden md:inline-flex")}>
-            Get Started
-          </Link>
+          {user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button variant="ghost" size="icon" className="rounded-full" aria-label="Account" />
+                }
+              >
+                <Avatar className="h-8 w-8">
+                  {user.avatarUrl ? <AvatarImage src={user.avatarUrl} alt={user.fullName} /> : null}
+                  <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuLabel>{user.fullName}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem render={<Link href={dashboardHref} />}>
+                  <LayoutDashboard className="mr-2 h-4 w-4" />
+                  Dashboard
+                </DropdownMenuItem>
+                <DropdownMenuItem render={<Link href={profileHref} />}>
+                  <UserIcon className="mr-2 h-4 w-4" />
+                  Profile
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={logout}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Log out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <>
+              <Link href="/login" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "hidden md:inline-flex")}>
+                Login
+              </Link>
+              <Link href="/signUp" className={cn(buttonVariants({ size: "sm" }), "hidden md:inline-flex")}>
+                Get Started
+              </Link>
+            </>
+          )}
           <Button
             variant="ghost"
             size="icon"
@@ -82,14 +152,44 @@ export function Navbar() {
               {link.label}
             </Link>
           ))}
-          <div className="mt-2 flex gap-2">
-            <Link href="/login" className={cn(buttonVariants({ variant: "outline", size: "sm" }), "flex-1")} onClick={() => setMobileOpen(false)}>
-              Login
-            </Link>
-            <Link href="/signUp" className={cn(buttonVariants({ size: "sm" }), "flex-1")} onClick={() => setMobileOpen(false)}>
-              Get Started
-            </Link>
-          </div>
+          {user ? (
+            <div className="mt-2 flex flex-col gap-1 border-t border-border/60 pt-3">
+              <div className="flex items-center gap-2 px-3 py-2">
+                <Avatar className="h-8 w-8">
+                  {user.avatarUrl ? <AvatarImage src={user.avatarUrl} alt={user.fullName} /> : null}
+                  <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="text-sm font-medium">{user.fullName}</span>
+              </div>
+              <Link href={dashboardHref} className="px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-secondary" onClick={() => setMobileOpen(false)}>
+                Dashboard
+              </Link>
+              <Link href={profileHref} className="px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-secondary" onClick={() => setMobileOpen(false)}>
+                Profile
+              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileOpen(false);
+                  logout();
+                }}
+                className="px-3 py-2 text-left text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-secondary"
+              >
+                Log out
+              </button>
+            </div>
+          ) : (
+            <div className="mt-2 flex gap-2">
+              <Link href="/login" className={cn(buttonVariants({ variant: "outline", size: "sm" }), "flex-1")} onClick={() => setMobileOpen(false)}>
+                Login
+              </Link>
+              <Link href="/signUp" className={cn(buttonVariants({ size: "sm" }), "flex-1")} onClick={() => setMobileOpen(false)}>
+                Get Started
+              </Link>
+            </div>
+          )}
         </nav>
       </div>
     </header>

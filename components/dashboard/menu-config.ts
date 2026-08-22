@@ -52,7 +52,6 @@ export const menuByRole: Record<Role, MenuGroup[]> = {
         { key: "manage-section", label: "Sections", href: "/admin/manage-section", icon: Layers },
         { key: "manage-quiz", label: "Quizzes", href: "/admin/manage-quiz", icon: FileQuestion },
         { key: "manage-question", label: "Questions", href: "/admin/manage-question", icon: FileQuestion },
-        { key: "question-tag", label: "Question Tags", href: "/admin/question-tag", icon: Tag },
         { key: "manage-assignment", label: "Assignments", href: "/admin/manage-assignment", icon: ClipboardList },
       ],
     },

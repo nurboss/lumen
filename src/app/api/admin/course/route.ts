@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Prisma } from "@/src/generated/prisma/client";
 import { ok, fail, handler } from "@/lib/api";
 import { requireRole } from "@/lib/auth";
 import prisma from "@/lib/prisma";
@@ -25,7 +26,10 @@ const instructorItem = z.object({
   category: z.enum(INSTRUCTOR_ROLES).default("LEAD"),
 });
 
-const curriculumUnit = z.object({
+// A curriculum item is one of: a new unit (content copied in), or a reference to
+// an existing quiz / assignment. Ordered within the section as authored.
+const curriculumUnitItem = z.object({
+  kind: z.literal("unit"),
   title: z.string().trim().min(1),
   type: z.enum(UNIT_TYPES).default("VIDEO"),
   description: optStr,
@@ -37,11 +41,15 @@ const curriculumUnit = z.object({
   attachmentUrl: optStr,
 });
 
+const curriculumItem = z.discriminatedUnion("kind", [
+  curriculumUnitItem,
+  z.object({ kind: z.literal("quiz"), refId: z.string().min(1) }),
+  z.object({ kind: z.literal("assignment"), refId: z.string().min(1) }),
+]);
+
 const curriculumSection = z.object({
   title: z.string().trim().min(1),
-  quizId: optStr,
-  assignmentId: optStr,
-  units: z.array(curriculumUnit).default([]),
+  items: z.array(curriculumItem).default([]),
 });
 
 const fields = z.object({
@@ -144,28 +152,52 @@ function scalarPayload(data: Fields) {
   };
 }
 
-/** Build nested Section/Unit create rows from the curriculum builder. */
-function curriculumCreate(data: Fields) {
-  return data.curriculum.map((section, sIdx) => ({
-    title: section.title,
-    order: sIdx,
-    quizId: section.quizId || null,
-    assignmentId: section.assignmentId || null,
-    units: {
-      create: section.units.map((u, uIdx) => ({
-        title: u.title,
-        order: uIdx,
-        type: u.type,
-        description: u.description || null,
-        isFree: u.isFree,
-        duration: u.duration ?? null,
-        durationUnit: u.durationUnit || null,
-        publicVideoUrl: u.publicVideoUrl || null,
-        storageVideoUrl: u.storageVideoUrl || null,
-        attachmentUrl: u.attachmentUrl || null,
-      })),
-    },
-  }));
+/**
+ * Persist the curriculum builder's ordered sections + items. Units are created
+ * (content copied) and owned by the section; quizzes/assignments are referenced
+ * by id. Every item is recorded as an ordered SectionItem.
+ */
+async function createCurriculum(
+  tx: Prisma.TransactionClient,
+  courseId: string,
+  sections: Fields["curriculum"]
+) {
+  for (const [sIdx, section] of sections.entries()) {
+    if (!section.title.trim()) continue;
+    const created = await tx.section.create({
+      data: { title: section.title.trim(), order: sIdx, courseId },
+    });
+    for (const [iIdx, item] of section.items.entries()) {
+      if (item.kind === "unit") {
+        const unit = await tx.unit.create({
+          data: {
+            sectionId: created.id,
+            title: item.title,
+            order: iIdx,
+            type: item.type,
+            description: item.description || null,
+            isFree: item.isFree,
+            duration: item.duration ?? null,
+            durationUnit: item.durationUnit || null,
+            publicVideoUrl: item.publicVideoUrl || null,
+            storageVideoUrl: item.storageVideoUrl || null,
+            attachmentUrl: item.attachmentUrl || null,
+          },
+        });
+        await tx.sectionItem.create({
+          data: { sectionId: created.id, order: iIdx, kind: "UNIT", unitId: unit.id },
+        });
+      } else if (item.kind === "quiz") {
+        await tx.sectionItem.create({
+          data: { sectionId: created.id, order: iIdx, kind: "QUIZ", quizId: item.refId },
+        });
+      } else {
+        await tx.sectionItem.create({
+          data: { sectionId: created.id, order: iIdx, kind: "ASSIGNMENT", assignmentId: item.refId },
+        });
+      }
+    }
+  }
 }
 
 export const POST = handler(async (req: Request) => {
@@ -184,6 +216,44 @@ export const POST = handler(async (req: Request) => {
     if (!cat) return fail("Category not found.");
   }
 
+  // Quizzes and assignments are one-to-one with a SectionItem (unique columns),
+  // so a quiz/assignment already placed in another section can't be reused here.
+  // Catch it up front and return a readable message instead of a raw 500.
+  if (data.action === "create" || data.action === "update") {
+    const quizIds = data.curriculum.flatMap((s) =>
+      s.items.filter((i): i is { kind: "quiz"; refId: string } => i.kind === "quiz").map((i) => i.refId)
+    );
+    const assignmentIds = data.curriculum.flatMap((s) =>
+      s.items.filter((i): i is { kind: "assignment"; refId: string } => i.kind === "assignment").map((i) => i.refId)
+    );
+
+    const dupQuiz = quizIds.find((id, i) => quizIds.indexOf(id) !== i);
+    if (dupQuiz) return fail("The same quiz is used more than once in this curriculum.");
+    const dupAssignment = assignmentIds.find((id, i) => assignmentIds.indexOf(id) !== i);
+    if (dupAssignment) return fail("The same assignment is used more than once in this curriculum.");
+
+    if (quizIds.length) {
+      const taken = await prisma.sectionItem.findMany({
+        where: { quizId: { in: quizIds } },
+        select: { quiz: { select: { title: true } } },
+      });
+      if (taken.length) {
+        const names = taken.map((t) => t.quiz?.title).filter(Boolean).join(", ");
+        return fail(`This quiz is already attached to another course/section: ${names || "unknown"}. Each quiz can be used only once.`);
+      }
+    }
+    if (assignmentIds.length) {
+      const taken = await prisma.sectionItem.findMany({
+        where: { assignmentId: { in: assignmentIds } },
+        select: { assignment: { select: { title: true } } },
+      });
+      if (taken.length) {
+        const names = taken.map((t) => t.assignment?.title).filter(Boolean).join(", ");
+        return fail(`This assignment is already attached to another course/section: ${names || "unknown"}. Each assignment can be used only once.`);
+      }
+    }
+  }
+
   const payload = scalarPayload(data);
   const authorId = data.authorId || user.id;
   const instructorRows = data.instructors.map((i, idx) => ({
@@ -194,14 +264,17 @@ export const POST = handler(async (req: Request) => {
 
   if (data.action === "create") {
     const slug = await uniqueSlug(data.title);
-    const course = await prisma.course.create({
-      data: {
-        ...payload,
-        slug,
-        authorId,
-        instructors: { create: instructorRows },
-        sections: { create: curriculumCreate(data) },
-      },
+    const course = await prisma.$transaction(async (tx) => {
+      const created = await tx.course.create({
+        data: {
+          ...payload,
+          slug,
+          authorId,
+          instructors: { create: instructorRows },
+        },
+      });
+      await createCurriculum(tx, created.id, data.curriculum);
+      return created;
     });
     return ok({ course });
   }

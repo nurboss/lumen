@@ -29,7 +29,7 @@ export const POST = handler(async (req: Request) => {
     where: { id: unitId },
     select: { id: true, section: { select: { courseId: true, batchId: true } } },
   });
-  const courseId = unit?.section.courseId;
+  const courseId = unit?.section?.courseId;
   if (!unit || !courseId) return fail("Unit not found.", 404);
 
   const enrollment = await prisma.enrollment.findFirst({

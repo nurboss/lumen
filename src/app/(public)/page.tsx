@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ArrowRight, Video, Award, Users, ShieldCheck } from "lucide-react";
+import Image from "next/image";
+import { ArrowRight, ArrowUpRight, Star, Video, Award, Users, ShieldCheck } from "lucide-react";
 import prisma from "@/lib/prisma";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,7 +11,9 @@ import { Countdown } from "@/components/countdown";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/format";
 
-export const revalidate = 60;
+// This page shares the (public) layout whose navbar reads the session cookie,
+// so it must render dynamically per request rather than being statically cached.
+export const dynamic = "force-dynamic";
 
 const trustPoints = [
   { icon: Video, title: "Live & recorded", desc: "Learn live over WebRTC or at your own pace." },
@@ -139,16 +142,63 @@ export default async function HomePage() {
       {mentors.length > 0 && (
         <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
           <SectionHeader eyebrow="Meet the mentors" title="Learn from experts" viewAllHref="/mentorsList" />
-          <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
-            {mentors.map((m) => (
-              <Link key={m.id} href={`/mentorDetails/${m.user.id}`} className="group text-center">
-                <div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 text-2xl font-heading font-bold text-primary">
-                  {m.user.fullName.split(" ").map((p) => p[0]).slice(0, 2).join("")}
-                </div>
-                <p className="font-medium text-foreground group-hover:text-primary">{m.user.fullName}</p>
-                {m.headline && <p className="text-xs text-muted-foreground line-clamp-1">{m.headline}</p>}
-              </Link>
-            ))}
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {mentors.map((m) => {
+              const initials = m.user.fullName
+                .split(" ")
+                .map((p) => p[0])
+                .slice(0, 2)
+                .join("");
+              return (
+                <Link
+                  key={m.id}
+                  href={`/mentorDetails/${m.user.id}`}
+                  className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-card p-5 transition-all duration-200 hover:-translate-y-1 hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                >
+                  {/* Faint ruled lines — the textbook signature */}
+                  <div className="paper-lines pointer-events-none absolute inset-0 opacity-40" />
+                  {/* Margin rule that grows on hover, like a highlighted entry */}
+                  <span className="absolute left-0 top-6 h-8 w-[3px] rounded-full bg-accent transition-all duration-200 group-hover:top-5 group-hover:h-[calc(100%-2.5rem)]" />
+
+                  <div className="relative flex items-center gap-4">
+                    {m.user.avatarUrl ? (
+                      <Image
+                        src={m.user.avatarUrl}
+                        alt={m.user.fullName}
+                        width={56}
+                        height={56}
+                        className="h-14 w-14 shrink-0 rounded-2xl object-cover ring-1 ring-border"
+                      />
+                    ) : (
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary/10 font-heading text-xl font-bold text-primary ring-1 ring-primary/15">
+                        {initials}
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="truncate font-heading font-semibold text-foreground group-hover:text-primary">
+                        {m.user.fullName}
+                      </p>
+                      {m.headline && (
+                        <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-muted-foreground">{m.headline}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="relative mt-4 flex items-center justify-between border-t border-dashed border-border pt-3">
+                    {m.ratingCount > 0 ? (
+                      <span className="flex items-center gap-1.5 font-mono text-xs text-muted-foreground">
+                        <Star className="h-3.5 w-3.5 fill-accent text-accent" />
+                        <span className="font-semibold text-foreground">{m.ratingAvg.toFixed(1)}</span>
+                        <span>· {m.ratingCount} {m.ratingCount === 1 ? "review" : "reviews"}</span>
+                      </span>
+                    ) : (
+                      <span className="font-mono text-xs text-muted-foreground">New mentor</span>
+                    )}
+                    <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground transition-all duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-primary" />
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         </section>
       )}

@@ -18,11 +18,17 @@ export interface PlayerUnit {
   locked: boolean;
 }
 
+// A section's curriculum entry: a playable unit, or a link to a quiz/assignment.
+export type PlayerItem =
+  | ({ kind: "unit" } & PlayerUnit)
+  | { kind: "quiz"; id: string; title: string }
+  | { kind: "assignment"; id: string; title: string };
+
 export interface PlayerSection {
   id: string;
   title: string;
   order: number;
-  units: PlayerUnit[];
+  items: PlayerItem[];
 }
 
 export interface PlayerData {
@@ -64,19 +70,28 @@ export async function getPlayerData(
           id: true,
           title: true,
           order: true,
-          units: {
+          items: {
             orderBy: { order: "asc" },
             select: {
               id: true,
-              title: true,
+              kind: true,
               order: true,
-              type: true,
-              isFree: true,
-              publicVideoUrl: true,
-              storageVideoUrl: true,
-              attachmentUrl: true,
-              description: true,
-              duration: true,
+              unit: {
+                select: {
+                  id: true,
+                  title: true,
+                  order: true,
+                  type: true,
+                  isFree: true,
+                  publicVideoUrl: true,
+                  storageVideoUrl: true,
+                  attachmentUrl: true,
+                  description: true,
+                  duration: true,
+                },
+              },
+              quiz: { select: { id: true, title: true } },
+              assignment: { select: { id: true, title: true } },
             },
           },
         },
@@ -102,17 +117,23 @@ export async function getPlayerData(
     : [];
   const progressByUnit = new Map(progressRows.map((p) => [p.unitId, p]));
 
-  // Flatten in order to apply sequential completion-lock.
-  const flat = course.sections.flatMap((s) =>
-    s.units.map((u) => ({ sectionOrder: s.order, unit: u }))
-  );
   let priorAllComplete = true;
+  let totalUnits = 0;
 
   const sections: PlayerSection[] = course.sections.map((section, si) => ({
     id: section.id,
     title: section.title,
     order: section.order,
-    units: section.units.map((unit) => {
+    items: section.items.map((item): PlayerItem => {
+      if (item.kind === "QUIZ" && item.quiz) {
+        return { kind: "quiz", id: item.quiz.id, title: item.quiz.title };
+      }
+      if (item.kind === "ASSIGNMENT" && item.assignment) {
+        return { kind: "assignment", id: item.assignment.id, title: item.assignment.title };
+      }
+      // UNIT (fallback also covers orphaned refs, filtered below)
+      const unit = item.unit!;
+      totalUnits += 1;
       const p = progressByUnit.get(unit.id);
       const completed = p?.completed ?? false;
 
@@ -129,6 +150,7 @@ export async function getPlayerData(
       if (!completed) priorAllComplete = false;
 
       return {
+        kind: "unit",
         id: unit.id,
         title: unit.title,
         order: unit.order,
@@ -143,10 +165,9 @@ export async function getPlayerData(
         lastPositionSeconds: p?.lastPositionSeconds ?? 0,
         locked,
       };
-    }),
+    }).filter((it) => it.kind !== "unit" || it.id),
   }));
 
-  const totalUnits = flat.length;
   const completedUnits = progressRows.filter((p) => p.completed).length;
 
   return {

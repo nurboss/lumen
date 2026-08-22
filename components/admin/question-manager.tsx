@@ -46,12 +46,6 @@ interface Question {
   marks: number;
   options: Option[] | null;
   correctAnswer: string[] | string | null;
-  tags: { id: string; name: string }[];
-}
-
-interface Tag {
-  id: string;
-  name: string;
 }
 
 const TYPE_LABELS: Record<QType, string> = {
@@ -71,7 +65,7 @@ function newId() {
   return Math.random().toString(36).slice(2, 9);
 }
 
-export function QuestionManager({ questions, tags }: { questions: Question[]; tags: Tag[] }) {
+export function QuestionManager({ questions }: { questions: Question[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Question | null>(null);
@@ -110,7 +104,6 @@ export function QuestionManager({ questions, tags }: { questions: Question[]; ta
               <TableHead>Question</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Marks</TableHead>
-              <TableHead>Tags</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -124,14 +117,6 @@ export function QuestionManager({ questions, tags }: { questions: Question[]; ta
                   <Badge variant="secondary">{TYPE_LABELS[q.type]}</Badge>
                 </TableCell>
                 <TableCell>{q.marks}</TableCell>
-                <TableCell>
-                  <div className="flex flex-wrap gap-1">
-                    {q.tags.map((t) => (
-                      <Badge key={t.id} variant="outline">{t.name}</Badge>
-                    ))}
-                    {q.tags.length === 0 && <span className="text-muted-foreground">—</span>}
-                  </div>
-                </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end">
                     <Button variant="ghost" size="icon" onClick={() => openEdit(q)} aria-label="Edit">
@@ -146,7 +131,7 @@ export function QuestionManager({ questions, tags }: { questions: Question[]; ta
             ))}
             {questions.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground">No questions yet.</TableCell>
+                <TableCell colSpan={4} className="text-center text-muted-foreground">No questions yet.</TableCell>
               </TableRow>
             )}
           </TableBody>
@@ -159,7 +144,6 @@ export function QuestionManager({ questions, tags }: { questions: Question[]; ta
           open={open}
           onOpenChange={setOpen}
           editing={editing}
-          tags={tags}
           onSaved={() => {
             setOpen(false);
             router.refresh();
@@ -174,13 +158,11 @@ function QuestionDialog({
   open,
   onOpenChange,
   editing,
-  tags,
   onSaved,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   editing: Question | null;
-  tags: Tag[];
   onSaved: () => void;
 }) {
   const [text, setText] = useState(editing?.text ?? "");
@@ -200,7 +182,6 @@ function QuestionDialog({
   const [correctText, setCorrectText] = useState(
     typeof editing?.correctAnswer === "string" ? editing.correctAnswer : ""
   );
-  const [tagIds, setTagIds] = useState<string[]>(editing?.tags.map((t) => t.id) ?? []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -240,7 +221,6 @@ function QuestionDialog({
       text: text.trim(),
       type,
       marks: Number(marks) || 1,
-      tagIds,
     };
     if (editing) body.id = editing.id;
 
@@ -342,26 +322,6 @@ function QuestionDialog({
             <div className="space-y-2">
               <Label>Correct answer</Label>
               <Input value={correctText} onChange={(e) => setCorrectText(e.target.value)} placeholder="Expected answer" />
-            </div>
-          )}
-
-          {tags.length > 0 && (
-            <div className="space-y-2">
-              <Label>Tags</Label>
-              <div className="flex flex-wrap gap-2">
-                {tags.map((t) => {
-                  const on = tagIds.includes(t.id);
-                  return (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => setTagIds((prev) => (on ? prev.filter((x) => x !== t.id) : [...prev, t.id]))}
-                    >
-                      <Badge variant={on ? "default" : "outline"}>{t.name}</Badge>
-                    </button>
-                  );
-                })}
-              </div>
             </div>
           )}
 

@@ -87,6 +87,12 @@ enum UnitType {
   TEXT
 }
 
+enum SectionItemKind {
+  UNIT
+  QUIZ
+  ASSIGNMENT
+}
+
 enum ClassStatus {
   PENDING
   STARTED
@@ -502,10 +508,8 @@ model Section {
   batch    Batch?  @relation(fields: [batchId], references: [id], onDelete: Cascade)
 
   units      Unit[]
-  quizId     String? @unique
-  quiz       Quiz?   @relation(fields: [quizId], references: [id])
-  assignmentId String? @unique
-  assignment   Assignment? @relation(fields: [assignmentId], references: [id])
+  // Ordered curriculum: units, quizzes and assignments interleaved in any order.
+  items      SectionItem[]
 
   createdAt DateTime @default(now())
 
@@ -513,10 +517,32 @@ model Section {
   @@index([batchId, order])
 }
 
+// One ordered entry in a section's curriculum. Points to exactly one of a unit,
+// quiz or assignment, matching the kind. Mirrors the course-wizard curriculum
+// builder where items of any kind can be arranged in any order.
+model SectionItem {
+  id        String          @id @default(cuid())
+  sectionId String
+  section   Section         @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  order     Int             @default(0)
+  kind      SectionItemKind
+
+  unitId       String?     @unique
+  unit         Unit?       @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  quizId       String?     @unique
+  quiz         Quiz?       @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  assignmentId String?     @unique
+  assignment   Assignment? @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([sectionId, order])
+}
+
 model Unit {
   id          String   @id @default(cuid())
-  sectionId   String
-  section     Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  sectionId   String?
+  section     Section? @relation(fields: [sectionId], references: [id], onDelete: Cascade)
   title       String
   description String? // HTML
   order       Int      @default(0)
@@ -526,9 +552,11 @@ model Unit {
   isFree          Boolean       @default(false)
   duration        Int?
   durationUnit    DurationUnit?
+  marks           Int? // score for video/online units
   publicVideoUrl  String? // youtube/public link
-  storageVideoUrl String? // drive/vimeo/uploaded
-  attachmentUrl   String?
+  storageVideoUrl String? // drive/vimeo/uploaded (recorded video)
+  attachmentUrl   String? // file upload link
+  offlineText     String? // offline course details
 
   // Live class
   startDate   DateTime?
@@ -538,7 +566,8 @@ model Unit {
   endedAt     DateTime?
   liveSession LiveSession?
 
-  progress UnitProgress[]
+  progress    UnitProgress[]
+  sectionItem SectionItem?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -581,13 +610,6 @@ model UnitProgress {
 // QUIZ / QUESTION / ASSIGNMENT
 // ============================================================================
 
-model QuestionTag {
-  id        String     @id @default(cuid())
-  name      String     @unique
-  questions Question[] @relation("QuestionTags")
-  createdAt DateTime   @default(now())
-}
-
 model Question {
   id            String        @id @default(cuid())
   text          String // HTML
@@ -596,7 +618,6 @@ model Question {
   correctAnswer Json? // ids or text
   marks         Int           @default(1)
   authorId      String?
-  tags          QuestionTag[] @relation("QuestionTags")
   quizzes       QuizQuestion[]
 
   createdAt DateTime @default(now())
@@ -623,7 +644,7 @@ model Quiz {
 
   questions QuizQuestion[]
   results   QuizResult[]
-  section   Section?
+  sectionItem SectionItem?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -698,7 +719,7 @@ model Assignment {
   maximumMarks     Int                      @default(10)
 
   submissions AssignmentSubmission[]
-  section     Section?
+  sectionItem SectionItem?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

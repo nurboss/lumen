@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/select";
 import { postJson } from "@/lib/client-api";
 import { formatBdt, effectivePrice } from "@/lib/format";
+import { toast } from "sonner";
 
 const TYPES = ["VIDEO", "ONLINE", "OFFLINE"] as const;
 const STATUSES = ["DRAFT", "PUBLISHED", "ARCHIVED"] as const;
@@ -39,26 +40,46 @@ const LEVELS = ["BEGINNER", "INTERMEDIATE", "ADVANCED"] as const;
 const LANGUAGES = ["bn", "en", "hi"] as const;
 const DURATION_UNITS = ["SECOND", "MINUTE", "HOUR", "DAY", "WEEK", "MONTH", "YEAR"] as const;
 const VIDEO_PROVIDERS = ["YOUTUBE", "VIMEO"] as const;
-const UNIT_TYPES = ["VIDEO", "LIVE", "TEXT"] as const;
-const INSTRUCTOR_ROLES = ["LEAD", "SUPPORT"] as const;
 
 const STEPS = [
   "Course Overview",
   "Accessibility & Media",
   "Curriculum",
-  "Instructor",
-  "FAQ",
-  "Submit",
 ] as const;
 
 const STEP_HINTS = [
   "Core details, pricing and what students will learn.",
-  "Badges, certificate, thumbnail and promo video.",
+  "Thumbnail and promo video.",
   "Build the ordered sections, units, quizzes and assignments.",
-  "Assign one or more lead / support instructors.",
-  "Optional frequently-asked questions.",
-  "Review everything and create the course.",
 ] as const;
+
+/* Sensible starting values for a brand-new course so admins only tweak the
+   title, category and price instead of filling every field from scratch. */
+const NEW_DEFAULTS = {
+  shortTitle: "Complete Course",
+  description:
+    "A complete, beginner-friendly course that takes you from the fundamentals to real-world application with clear, practical lessons.",
+  duration: "3",
+  regularPrice: "1000",
+  sellPrice: "500",
+  whatWillBeTaught: [
+    "Master the core concepts step by step",
+    "Practice with real, hands-on examples",
+    "Apply your new skills to real projects",
+  ],
+  aboutCourse: [
+    { title: "Who is this course for?", answer: "Anyone who wants to build strong fundamentals and learn at their own pace." },
+    { title: "What do I need to get started?", answer: "Just a device with internet access and the willingness to learn." },
+  ],
+  badgePercentage: "80",
+  certificatePassingPercentage: "50",
+  badgeTitle: "Excellence Award",
+  curriculum: [{ title: "Introduction", items: [] as CurriculumItem[] }],
+} as const;
+
+function todayInput() {
+  return new Date().toISOString().slice(0, 10);
+}
 
 interface Qa {
   title: string;
@@ -68,19 +89,27 @@ interface CourseInstructor {
   userId: string;
   category: string;
 }
-interface CurriculumUnit {
-  title: string;
-  type: string;
-  description: string;
-  isFree: boolean;
-  publicVideoUrl: string;
-  storageVideoUrl: string;
+// Every curriculum item now references an existing record (unit / quiz / assignment)
+// picked from a searchable dropdown, identified by its id.
+type CurriculumKind = "unit" | "quiz" | "assignment";
+interface CurriculumItem {
+  kind: CurriculumKind;
+  refId: string;
 }
 interface CurriculumSection {
   title: string;
-  quizId: string;
-  assignmentId: string;
-  units: CurriculumUnit[];
+  items: CurriculumItem[];
+}
+
+// A unit fetched from its table — carries the fields we copy into the new section.
+interface UnitOpt {
+  id: string;
+  title: string;
+  type: string;
+  description: string | null;
+  isFree: boolean;
+  publicVideoUrl: string | null;
+  storageVideoUrl: string | null;
 }
 
 interface Course {
@@ -137,6 +166,7 @@ interface ManagerProps {
   authors: Opt[];
   certificateTemplates: Opt[];
   courseOptions: Opt[];
+  units: UnitOpt[];
   quizzes: Opt[];
   assignments: Opt[];
 }
@@ -258,6 +288,7 @@ function CourseWizard({
   authors,
   certificateTemplates,
   courseOptions,
+  units,
   quizzes,
   assignments,
   onSaved,
@@ -269,35 +300,36 @@ function CourseWizard({
 }) {
   const isNew = !editing;
   const [step, setStep] = useState(0);
+  const unitsById = new Map(units.map((u) => [u.id, u]));
 
   // Step 1 — Overview
   const [title, setTitle] = useState(editing?.title ?? "");
-  const [shortTitle, setShortTitle] = useState(editing?.shortTitle ?? "");
-  const [description, setDescription] = useState(editing?.description ?? "");
+  const [shortTitle, setShortTitle] = useState(editing?.shortTitle ?? (isNew ? NEW_DEFAULTS.shortTitle : ""));
+  const [description, setDescription] = useState(editing?.description ?? (isNew ? NEW_DEFAULTS.description : ""));
   const [categoryId, setCategoryId] = useState(editing?.categoryId ?? NONE);
   const [authorId, setAuthorId] = useState(editing?.authorId ?? NONE);
   const [type, setType] = useState(editing?.type ?? "VIDEO");
-  const [status, setStatus] = useState(editing?.status ?? "DRAFT");
+  const [status, setStatus] = useState(editing?.status ?? (isNew ? "PUBLISHED" : "DRAFT"));
   const [level, setLevel] = useState(editing?.level ?? "BEGINNER");
   const [language, setLanguage] = useState(editing?.language ?? "bn");
-  const [startDate, setStartDate] = useState(toDateInput(editing?.startDate ?? null));
-  const [duration, setDuration] = useState(editing?.duration?.toString() ?? "");
+  const [startDate, setStartDate] = useState(toDateInput(editing?.startDate ?? null) || (isNew ? todayInput() : ""));
+  const [duration, setDuration] = useState(editing?.duration?.toString() ?? (isNew ? NEW_DEFAULTS.duration : ""));
   const [durationUnit, setDurationUnit] = useState(editing?.durationUnit ?? "MONTH");
   const [maximumStudents, setMaximumStudents] = useState(editing?.maximumStudents?.toString() ?? "");
-  const [regularPrice, setRegularPrice] = useState(editing ? String(editing.regularPrice / 100) : "");
-  const [sellPrice, setSellPrice] = useState(editing ? String(editing.sellPrice / 100) : "");
-  const [whatWillBeTaught, setWhatWillBeTaught] = useState<string[]>(editing?.whatWillLearn ?? [""]);
-  const [aboutCourse, setAboutCourse] = useState<Qa[]>(editing?.aboutFaq ?? [{ title: "", answer: "" }]);
+  const [regularPrice, setRegularPrice] = useState(editing ? String(editing.regularPrice / 100) : NEW_DEFAULTS.regularPrice);
+  const [sellPrice, setSellPrice] = useState(editing ? String(editing.sellPrice / 100) : NEW_DEFAULTS.sellPrice);
+  const [whatWillBeTaught, setWhatWillBeTaught] = useState<string[]>(editing?.whatWillLearn ?? [...NEW_DEFAULTS.whatWillBeTaught]);
+  const [aboutCourse, setAboutCourse] = useState<Qa[]>(editing?.aboutFaq ?? NEW_DEFAULTS.aboutCourse.map((a) => ({ ...a })));
   const [isFree, setIsFree] = useState(editing?.isFree ?? false);
   const [autoEvaluation, setAutoEvaluation] = useState(editing?.autoEvaluation ?? false);
   const [unitCompletionLock, setUnitCompletionLock] = useState(editing?.unitCompletionLock ?? false);
 
   // Step 2 — Accessibility & Media
-  const [badgePercentage, setBadgePercentage] = useState(editing?.badgePercentage?.toString() ?? "");
+  const [badgePercentage, setBadgePercentage] = useState(editing?.badgePercentage?.toString() ?? (isNew ? NEW_DEFAULTS.badgePercentage : ""));
   const [certificatePassingPercentage, setCertificatePassingPercentage] = useState(
-    editing?.certificatePassingPercent?.toString() ?? ""
+    editing?.certificatePassingPercent?.toString() ?? (isNew ? NEW_DEFAULTS.certificatePassingPercentage : "")
   );
-  const [badgeTitle, setBadgeTitle] = useState(editing?.badgeTitle ?? "");
+  const [badgeTitle, setBadgeTitle] = useState(editing?.badgeTitle ?? (isNew ? NEW_DEFAULTS.badgeTitle : ""));
   const [certificateTemplateId, setCertificateTemplateId] = useState(editing?.certificateTemplateId ?? NONE);
   const [badgeImageUrl, setBadgeImageUrl] = useState(editing?.badgeImageUrl ?? "");
   const [completionCertificate, setCompletionCertificate] = useState(editing?.completionCertificate ?? false);
@@ -311,15 +343,13 @@ function CourseWizard({
   const [uploadingBadge, setUploadingBadge] = useState(false);
 
   // Step 3 — Curriculum (create-only)
-  const [curriculum, setCurriculum] = useState<CurriculumSection[]>([]);
-
-  // Step 4 — Instructors
-  const [instructors, setInstructors] = useState<CourseInstructor[]>(
-    editing?.instructors?.length ? editing.instructors : [{ userId: "", category: "LEAD" }]
+  const [curriculum, setCurriculum] = useState<CurriculumSection[]>(
+    isNew ? NEW_DEFAULTS.curriculum.map((s) => ({ ...s, items: [] })) : []
   );
 
-  // Step 5 — FAQ
-  const [faqQuestions, setFaqQuestions] = useState<Qa[]>(editing?.faq ?? []);
+  // Instructors & FAQ are preserved as-is (their editor steps were removed).
+  const instructors: CourseInstructor[] = editing?.instructors ?? [];
+  const faqQuestions: Qa[] = editing?.faq ?? [];
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -336,14 +366,17 @@ function CourseWizard({
     if (!badgePercentage) return "Badge Percentage is required.";
     if (!certificatePassingPercentage) return "Certificate Passing Percentage is required.";
     if (!badgeTitle.trim()) return "Badge Title is required.";
-    if (!instructors.some((i) => i.userId)) return "Assign at least one instructor.";
     return null;
   }
 
   async function submit() {
     setError(null);
     const v = validate();
-    if (v) return setError(v);
+    if (v) {
+      setError(v);
+      toast.error(v);
+      return;
+    }
     setBusy(true);
     const res = await postJson("/api/admin/course", {
       action: editing ? "update" : "create",
@@ -381,15 +414,32 @@ function CourseWizard({
       thumbnailUrl,
       videoProvider: videoProvider === NONE ? "" : videoProvider,
       previewVideoUrl: previewVideoUrl.trim(),
-      // Step 3 — only sent for new courses
+      // Step 3 — only sent for new courses. Ordered items of any kind; units copy
+      // the picked unit's content, quizzes/assignments reference an existing id.
       curriculum: isNew
         ? curriculum
             .filter((s) => s.title.trim())
             .map((s) => ({
               title: s.title.trim(),
-              quizId: s.quizId === NONE ? "" : s.quizId,
-              assignmentId: s.assignmentId === NONE ? "" : s.assignmentId,
-              units: s.units.filter((u) => u.title.trim()),
+              items: s.items
+                .filter((it) => it.refId)
+                .map((it) => {
+                  if (it.kind === "unit") {
+                    const u = unitsById.get(it.refId);
+                    if (!u) return null;
+                    return {
+                      kind: "unit" as const,
+                      title: u.title,
+                      type: u.type,
+                      description: u.description ?? "",
+                      isFree: u.isFree,
+                      publicVideoUrl: u.publicVideoUrl ?? "",
+                      storageVideoUrl: u.storageVideoUrl ?? "",
+                    };
+                  }
+                  return { kind: it.kind, refId: it.refId };
+                })
+                .filter((it): it is NonNullable<typeof it> => it !== null),
             }))
         : [],
       // Step 4
@@ -398,7 +448,12 @@ function CourseWizard({
       faqQuestions: faqQuestions.filter((f) => f.title.trim()).map((f) => ({ title: f.title.trim(), answer: f.answer })),
     });
     setBusy(false);
-    if ("error" in res) return setError(res.error);
+    if ("error" in res) {
+      setError(res.error);
+      toast.error(res.error);
+      return;
+    }
+    toast.success(editing ? "Course updated." : "Course created.");
     onSaved();
   }
 
@@ -440,6 +495,7 @@ function CourseWizard({
           {step === 0 && (
             <StepOverview
               {...{
+                isNew,
                 categories, authors,
                 title, setTitle, shortTitle, setShortTitle, description, setDescription,
                 categoryId, setCategoryId, authorId, setAuthorId, type, setType, status, setStatus,
@@ -455,6 +511,7 @@ function CourseWizard({
           {step === 1 && (
             <StepMedia
               {...{
+                isNew,
                 certificateTemplates, courseOptions,
                 badgePercentage, setBadgePercentage, certificatePassingPercentage, setCertificatePassingPercentage,
                 badgeTitle, setBadgeTitle, certificateTemplateId, setCertificateTemplateId,
@@ -475,23 +532,9 @@ function CourseWizard({
               isNew={isNew}
               curriculum={curriculum}
               setCurriculum={setCurriculum}
+              units={units}
               quizzes={quizzes}
               assignments={assignments}
-            />
-          )}
-
-          {step === 3 && (
-            <StepInstructors authors={authors} instructors={instructors} setInstructors={setInstructors} />
-          )}
-
-          {step === 4 && <StepFaq faqQuestions={faqQuestions} setFaqQuestions={setFaqQuestions} />}
-
-          {step === 5 && (
-            <StepSubmit
-              title={title}
-              curriculumCount={curriculum.filter((s) => s.title.trim()).length}
-              instructorCount={instructors.filter((i) => i.userId).length}
-              isNew={isNew}
             />
           )}
 
@@ -625,10 +668,12 @@ function StepOverview(p: any) {
             <Label>Course Title *</Label>
             <Input value={p.title} onChange={(e: any) => p.setTitle(e.target.value)} placeholder="Course title" />
           </div>
-          <div className="space-y-2">
-            <Label>Short Title *</Label>
-            <Input value={p.shortTitle} onChange={(e: any) => p.setShortTitle(e.target.value)} placeholder="Card subtitle" />
-          </div>
+          {!p.isNew && (
+            <div className="space-y-2">
+              <Label>Short Title *</Label>
+              <Input value={p.shortTitle} onChange={(e: any) => p.setShortTitle(e.target.value)} placeholder="Card subtitle" />
+            </div>
+          )}
           <SelectField label="Status" value={p.status} onChange={p.setStatus}>
             {STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
           </SelectField>
@@ -637,32 +682,23 @@ function StepOverview(p: any) {
           <Label>Description</Label>
           <Textarea value={p.description} onChange={(e: any) => p.setDescription(e.target.value)} rows={4} />
         </div>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <SelectField label="Course Type *" value={p.type} onChange={p.setType}>
-            {TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-          </SelectField>
-          <SelectField label="Language *" value={p.language} onChange={p.setLanguage}>
-            {LANGUAGES.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
-          </SelectField>
-          <SelectField label="Level *" value={p.level} onChange={p.setLevel}>
-            {LEVELS.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
-          </SelectField>
-        </div>
+        {!p.isNew && (
+          <div className="grid gap-4 sm:grid-cols-3">
+            <SelectField label="Course Type *" value={p.type} onChange={p.setType}>
+              {TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+            </SelectField>
+            <SelectField label="Language *" value={p.language} onChange={p.setLanguage}>
+              {LANGUAGES.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+            </SelectField>
+            <SelectField label="Level *" value={p.level} onChange={p.setLevel}>
+              {LEVELS.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+            </SelectField>
+          </div>
+        )}
       </Group>
 
-      <Group title="Schedule & pricing">
+      <Group title="Pricing">
         <div className="grid gap-4 sm:grid-cols-3">
-          <div className="space-y-2">
-            <Label>Course Start Date *</Label>
-            <Input type="date" value={p.startDate} onChange={(e: any) => p.setStartDate(e.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label>Total Duration *</Label>
-            <Input type="number" min={0} value={p.duration} onChange={(e: any) => p.setDuration(e.target.value)} />
-          </div>
-          <SelectField label="Duration Parameter *" value={p.durationUnit} onChange={p.setDurationUnit}>
-            {DURATION_UNITS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
-          </SelectField>
           <div className="space-y-2">
             <Label>Regular Price (৳) *</Label>
             <Input type="number" min={0} value={p.regularPrice} disabled={p.isFree}
@@ -673,19 +709,38 @@ function StepOverview(p: any) {
             <Input type="number" min={0} value={p.sellPrice} disabled={p.isFree}
               onChange={(e: any) => p.setSellPrice(e.target.value)} />
           </div>
-          <div className="space-y-2">
-            <Label>Maximum Students</Label>
-            <Input type="number" min={0} value={p.maximumStudents} onChange={(e: any) => p.setMaximumStudents(e.target.value)} />
-          </div>
+          {!p.isNew && (
+            <div className="space-y-2">
+              <Label>Maximum Students</Label>
+              <Input type="number" min={0} value={p.maximumStudents} onChange={(e: any) => p.setMaximumStudents(e.target.value)} />
+            </div>
+          )}
         </div>
-        <SelectField label="Author" value={p.authorId} onChange={p.setAuthorId}>
-          <SelectItem value={NONE}>— Me —</SelectItem>
-          {p.authors.map((a: Opt) => <SelectItem key={a.id} value={a.id}>{optLabel(a)}</SelectItem>)}
-        </SelectField>
+        {!p.isNew && (
+          <>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="space-y-2">
+                <Label>Course Start Date *</Label>
+                <Input type="date" value={p.startDate} onChange={(e: any) => p.setStartDate(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Total Duration *</Label>
+                <Input type="number" min={0} value={p.duration} onChange={(e: any) => p.setDuration(e.target.value)} />
+              </div>
+              <SelectField label="Duration Parameter *" value={p.durationUnit} onChange={p.setDurationUnit}>
+                {DURATION_UNITS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+              </SelectField>
+            </div>
+            <SelectField label="Author" value={p.authorId} onChange={p.setAuthorId}>
+              <SelectItem value={NONE}>— Me —</SelectItem>
+              {p.authors.map((a: Opt) => <SelectItem key={a.id} value={a.id}>{optLabel(a)}</SelectItem>)}
+            </SelectField>
+          </>
+        )}
         <div className="grid gap-3 sm:grid-cols-3">
           <Toggle label="Free Course" checked={p.isFree} onChange={p.setIsFree} />
-          <Toggle label="Auto Evaluation" checked={p.autoEvaluation} onChange={p.setAutoEvaluation} />
-          <Toggle label="Unit Completion Lock" checked={p.unitCompletionLock} onChange={p.setUnitCompletionLock} />
+          {!p.isNew && <Toggle label="Auto Evaluation" checked={p.autoEvaluation} onChange={p.setAutoEvaluation} />}
+          {!p.isNew && <Toggle label="Unit Completion Lock" checked={p.unitCompletionLock} onChange={p.setUnitCompletionLock} />}
         </div>
       </Group>
 
@@ -709,42 +764,46 @@ function StepOverview(p: any) {
 function StepMedia(p: any) {
   return (
     <div className="space-y-5">
-      <Group title="Badge & certificate">
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className="space-y-2">
-            <Label>Badge Percentage * (0–100)</Label>
-            <Input type="number" min={0} max={100} value={p.badgePercentage}
-              onChange={(e: any) => p.setBadgePercentage(e.target.value)} />
+      {!p.isNew && (
+        <Group title="Badge & certificate">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-2">
+              <Label>Badge Percentage * (0–100)</Label>
+              <Input type="number" min={0} max={100} value={p.badgePercentage}
+                onChange={(e: any) => p.setBadgePercentage(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Certificate Passing % * (0–100)</Label>
+              <Input type="number" min={0} max={100} value={p.certificatePassingPercentage}
+                onChange={(e: any) => p.setCertificatePassingPercentage(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Badge Title *</Label>
+              <Input value={p.badgeTitle} onChange={(e: any) => p.setBadgeTitle(e.target.value)} />
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label>Certificate Passing % * (0–100)</Label>
-            <Input type="number" min={0} max={100} value={p.certificatePassingPercentage}
-              onChange={(e: any) => p.setCertificatePassingPercentage(e.target.value)} />
+          <SelectField label="Certificate Template" value={p.certificateTemplateId} onChange={p.setCertificateTemplateId}>
+            <SelectItem value={NONE}>— None —</SelectItem>
+            {p.certificateTemplates.map((t: Opt) => <SelectItem key={t.id} value={t.id}>{optLabel(t)}</SelectItem>)}
+          </SelectField>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Toggle label="Completion Certificate" checked={p.completionCertificate} onChange={p.setCompletionCertificate} />
+            <Toggle label="Hide Expired Batches" checked={p.hideExpiredBatches} onChange={p.setHideExpiredBatches} />
           </div>
-          <div className="space-y-2">
-            <Label>Badge Title *</Label>
-            <Input value={p.badgeTitle} onChange={(e: any) => p.setBadgeTitle(e.target.value)} />
-          </div>
-        </div>
-        <SelectField label="Certificate Template" value={p.certificateTemplateId} onChange={p.setCertificateTemplateId}>
-          <SelectItem value={NONE}>— None —</SelectItem>
-          {p.certificateTemplates.map((t: Opt) => <SelectItem key={t.id} value={t.id}>{optLabel(t)}</SelectItem>)}
-        </SelectField>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Toggle label="Completion Certificate" checked={p.completionCertificate} onChange={p.setCompletionCertificate} />
-          <Toggle label="Hide Expired Batches" checked={p.hideExpiredBatches} onChange={p.setHideExpiredBatches} />
-        </div>
-      </Group>
+        </Group>
+      )}
 
       <Group title="Media">
         <div className="grid gap-4 sm:grid-cols-2">
-          <FileField
-            label="Excellence Badge (jpg/png)"
-            url={p.badgeImageUrl}
-            uploading={p.uploadingBadge}
-            onFile={p.onUploadBadge}
-            previewClass="h-16 w-16"
-          />
+          {!p.isNew && (
+            <FileField
+              label="Excellence Badge (jpg/png)"
+              url={p.badgeImageUrl}
+              uploading={p.uploadingBadge}
+              onFile={p.onUploadBadge}
+              previewClass="h-16 w-16"
+            />
+          )}
           <FileField
             label="Course Thumbnail (jpg/png, ~575×450, ≤1MB)"
             url={p.thumbnailUrl}
@@ -765,20 +824,22 @@ function StepMedia(p: any) {
         </div>
       </Group>
 
-      <Group title="Advanced">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <SelectField label="Prerequisite Course" value={p.prerequisiteCourseId} onChange={p.setPrerequisiteCourseId}>
-            <SelectItem value={NONE}>— None —</SelectItem>
-            {p.courseOptions
-              .filter((c: Opt) => c.id !== p.editingId)
-              .map((c: Opt) => <SelectItem key={c.id} value={c.id}>{optLabel(c)}</SelectItem>)}
-          </SelectField>
-          <div className="space-y-2">
-            <Label>Course Retakes</Label>
-            <Input type="number" min={0} value={p.courseRetakes} onChange={(e: any) => p.setCourseRetakes(e.target.value)} />
+      {!p.isNew && (
+        <Group title="Advanced">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <SelectField label="Prerequisite Course" value={p.prerequisiteCourseId} onChange={p.setPrerequisiteCourseId}>
+              <SelectItem value={NONE}>— None —</SelectItem>
+              {p.courseOptions
+                .filter((c: Opt) => c.id !== p.editingId)
+                .map((c: Opt) => <SelectItem key={c.id} value={c.id}>{optLabel(c)}</SelectItem>)}
+            </SelectField>
+            <div className="space-y-2">
+              <Label>Course Retakes</Label>
+              <Input type="number" min={0} value={p.courseRetakes} onChange={(e: any) => p.setCourseRetakes(e.target.value)} />
+            </div>
           </div>
-        </div>
-      </Group>
+        </Group>
+      )}
     </div>
   );
 }
@@ -812,12 +873,14 @@ function StepCurriculum({
   isNew,
   curriculum,
   setCurriculum,
+  units,
   quizzes,
   assignments,
 }: {
   isNew: boolean;
   curriculum: CurriculumSection[];
   setCurriculum: (v: CurriculumSection[]) => void;
+  units: UnitOpt[];
   quizzes: Opt[];
   assignments: Opt[];
 }) {
@@ -833,147 +896,159 @@ function StepCurriculum({
   function update(i: number, patch: Partial<CurriculumSection>) {
     setCurriculum(curriculum.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
   }
-  function move(i: number, dir: -1 | 1) {
+  function moveSection(i: number, dir: -1 | 1) {
     const j = i + dir;
     if (j < 0 || j >= curriculum.length) return;
     const next = [...curriculum];
     [next[i], next[j]] = [next[j], next[i]];
     setCurriculum(next);
   }
+  function setItems(i: number, items: CurriculumItem[]) {
+    update(i, { items });
+  }
+  function addItem(i: number, item: CurriculumItem) {
+    setItems(i, [...curriculum[i].items, item]);
+  }
+  function patchItem(i: number, ii: number, patch: Partial<CurriculumItem>) {
+    setItems(i, curriculum[i].items.map((it, idx) => (idx === ii ? { ...it, ...patch } : it)));
+  }
+  function removeItem(i: number, ii: number) {
+    setItems(i, curriculum[i].items.filter((_, idx) => idx !== ii));
+  }
+  function moveItem(i: number, ii: number, dir: -1 | 1) {
+    const items = curriculum[i].items;
+    const j = ii + dir;
+    if (j < 0 || j >= items.length) return;
+    const next = [...items];
+    [next[ii], next[j]] = [next[j], next[ii]];
+    setItems(i, next);
+  }
 
   return (
     <div className="space-y-4">
-      {curriculum.map((section, i) => (
-        <div key={i} className="space-y-3 rounded-lg border border-border p-3">
-          <div className="flex items-center gap-2">
-            <Badge variant="outline">#{i + 1}</Badge>
-            <Input
-              value={section.title}
-              placeholder="Section title"
-              onChange={(e) => update(i, { title: e.target.value })}
-            />
-            <Button variant="ghost" size="icon" onClick={() => move(i, -1)} aria-label="Move up"><ChevronUp className="h-4 w-4" /></Button>
-            <Button variant="ghost" size="icon" onClick={() => move(i, 1)} aria-label="Move down"><ChevronDown className="h-4 w-4" /></Button>
-            <Button variant="ghost" size="icon" onClick={() => setCurriculum(curriculum.filter((_, idx) => idx !== i))} aria-label="Delete section">
-              <Trash2 className="h-4 w-4 text-destructive" />
-            </Button>
-          </div>
+      {curriculum.map((section, i) => {
+        const hasQuiz = section.items.some((it) => it.kind === "quiz");
+        const hasAssignment = section.items.some((it) => it.kind === "assignment");
+        return (
+          <div key={i} className="space-y-3 rounded-lg border border-border p-3">
+            <div className="flex items-center gap-2">
+              <Badge variant="outline">#{i + 1}</Badge>
+              <Input
+                value={section.title}
+                placeholder="Section title"
+                onChange={(e) => update(i, { title: e.target.value })}
+              />
+              <Button variant="ghost" size="icon" onClick={() => moveSection(i, -1)} aria-label="Move section up"><ChevronUp className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="icon" onClick={() => moveSection(i, 1)} aria-label="Move section down"><ChevronDown className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="icon" onClick={() => setCurriculum(curriculum.filter((_, idx) => idx !== i))} aria-label="Delete section">
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <SelectField label="Attach quiz" value={section.quizId || NONE} onChange={(v) => update(i, { quizId: v })}>
-              <SelectItem value={NONE}>None</SelectItem>
-              {quizzes.map((q) => <SelectItem key={q.id} value={q.id}>{optLabel(q)}</SelectItem>)}
-            </SelectField>
-            <SelectField label="Attach assignment" value={section.assignmentId || NONE} onChange={(v) => update(i, { assignmentId: v })}>
-              <SelectItem value={NONE}>None</SelectItem>
-              {assignments.map((a) => <SelectItem key={a.id} value={a.id}>{optLabel(a)}</SelectItem>)}
-            </SelectField>
-          </div>
+            {/* Ordered items: units, quizzes and assignments in any order */}
+            <div className="space-y-2">
+              {section.items.length === 0 && (
+                <p className="rounded-md border border-dashed border-border/70 px-3 py-4 text-center text-xs text-muted-foreground">
+                  No content yet. Add a unit, quiz or assignment below.
+                </p>
+              )}
+              {section.items.map((item, ii) => (
+                <div key={ii} className="flex items-start gap-2 rounded-md border border-border/70 p-2">
+                  <div className="flex flex-col">
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => moveItem(i, ii, -1)} aria-label="Move item up"><ChevronUp className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => moveItem(i, ii, 1)} aria-label="Move item down"><ChevronDown className="h-4 w-4" /></Button>
+                  </div>
+                  <Badge variant="secondary" className="mt-1 shrink-0 capitalize">{item.kind}</Badge>
 
-          {/* Units */}
-          <div className="space-y-2">
-            <Label>Units</Label>
-            {section.units.map((unit, ui) => (
-              <div key={ui} className="grid items-start gap-2 rounded-md border border-border/70 p-2 sm:grid-cols-[1fr_140px_auto]">
-                <Input value={unit.title} placeholder="Unit title"
-                  onChange={(e) => update(i, { units: section.units.map((u, idx) => idx === ui ? { ...u, title: e.target.value } : u) })} />
-                <Select value={unit.type}
-                  onValueChange={(v) => update(i, { units: section.units.map((u, idx) => idx === ui ? { ...u, type: v ?? "VIDEO" } : u) })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{UNIT_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-                </Select>
-                <div className="flex items-center gap-2">
-                  <Toggle label="Free" checked={unit.isFree}
-                    onChange={(v) => update(i, { units: section.units.map((u, idx) => idx === ui ? { ...u, isFree: v } : u) })} />
-                  <Button variant="ghost" size="icon" aria-label="Remove unit"
-                    onClick={() => update(i, { units: section.units.filter((_, idx) => idx !== ui) })}>
+                  <div className="flex-1">
+                    <SearchSelect
+                      placeholder={
+                        item.kind === "unit" ? "Search a unit…" : item.kind === "quiz" ? "Search a quiz…" : "Search an assignment…"
+                      }
+                      options={item.kind === "unit" ? units : item.kind === "quiz" ? quizzes : assignments}
+                      value={item.refId}
+                      onChange={(v) => patchItem(i, ii, { refId: v })}
+                    />
+                  </div>
+
+                  <Button variant="ghost" size="icon" aria-label="Remove item" onClick={() => removeItem(i, ii)}>
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
-                <Input className="sm:col-span-3" value={unit.publicVideoUrl} placeholder="Video / content URL (optional)"
-                  onChange={(e) => update(i, { units: section.units.map((u, idx) => idx === ui ? { ...u, publicVideoUrl: e.target.value } : u) })} />
-              </div>
-            ))}
-            <Button variant="outline" size="sm"
-              onClick={() => update(i, { units: [...section.units, { title: "", type: "VIDEO", description: "", isFree: false, publicVideoUrl: "", storageVideoUrl: "" }] })}>
-              <Plus className="mr-1 h-4 w-4" /> Add unit
-            </Button>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={() => addItem(i, { kind: "unit", refId: "" })}>
+                <Plus className="mr-1 h-4 w-4" /> Add unit
+              </Button>
+              <Button variant="outline" size="sm" disabled={hasQuiz} onClick={() => addItem(i, { kind: "quiz", refId: "" })}>
+                <Plus className="mr-1 h-4 w-4" /> Add quiz
+              </Button>
+              <Button variant="outline" size="sm" disabled={hasAssignment} onClick={() => addItem(i, { kind: "assignment", refId: "" })}>
+                <Plus className="mr-1 h-4 w-4" /> Add assignment
+              </Button>
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
 
       <Button variant="outline"
-        onClick={() => setCurriculum([...curriculum, { title: "", quizId: "", assignmentId: "", units: [] }])}>
+        onClick={() => setCurriculum([...curriculum, { title: "", items: [] }])}>
         <Plus className="mr-1 h-4 w-4" /> Add section
       </Button>
     </div>
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Step 4 — Instructors                                                */
-/* ------------------------------------------------------------------ */
-
-function StepInstructors({
-  authors,
-  instructors,
-  setInstructors,
+/* Searchable dropdown for picking an existing quiz / assignment. */
+function SearchSelect({
+  placeholder,
+  value,
+  options,
+  onChange,
 }: {
-  authors: Opt[];
-  instructors: CourseInstructor[];
-  setInstructors: (v: CourseInstructor[]) => void;
+  placeholder: string;
+  value: string;
+  options: Opt[];
+  onChange: (v: string) => void;
 }) {
-  function update(i: number, patch: Partial<CourseInstructor>) {
-    setInstructors(instructors.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
-  }
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const selected = options.find((o) => o.id === value);
+  const filtered = query
+    ? options.filter((o) => optLabel(o).toLowerCase().includes(query.toLowerCase()))
+    : options;
+
   return (
-    <div className="space-y-3">
-      {instructors.map((ins, i) => (
-        <div key={i} className="grid items-end gap-3 sm:grid-cols-[1fr_200px_auto]">
-          <SelectField label="Instructor *" value={ins.userId || NONE} onChange={(v) => update(i, { userId: v === NONE ? "" : v })}>
-            <SelectItem value={NONE}>— Select —</SelectItem>
-            {authors.map((a) => <SelectItem key={a.id} value={a.id}>{optLabel(a)}</SelectItem>)}
-          </SelectField>
-          <SelectField label="Category" value={ins.category} onChange={(v) => update(i, { category: v })}>
-            {INSTRUCTOR_ROLES.map((r) => <SelectItem key={r} value={r}>{r === "LEAD" ? "Lead instructor" : "Support instructor"}</SelectItem>)}
-          </SelectField>
-          <Button variant="ghost" size="icon" aria-label="Remove"
-            onClick={() => setInstructors(instructors.filter((_, idx) => idx !== i))}>
-            <Trash2 className="h-4 w-4 text-destructive" />
-          </Button>
+    <div className="relative">
+      <Input
+        value={open ? query : selected ? optLabel(selected) : ""}
+        placeholder={placeholder}
+        onFocus={() => setOpen(true)}
+        onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+      />
+      {open && (
+        <div className="absolute z-50 mt-1 max-h-56 w-full overflow-auto rounded-md border border-border bg-popover p-1 shadow-md">
+          {filtered.length === 0 ? (
+            <p className="px-2 py-1.5 text-sm text-muted-foreground">No results.</p>
+          ) : (
+            filtered.map((o) => (
+              <button
+                key={o.id}
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => { onChange(o.id); setQuery(""); setOpen(false); }}
+                className="flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
+              >
+                <span className="truncate">{optLabel(o)}</span>
+                {o.id === value && <Check className="h-4 w-4 shrink-0 text-primary" />}
+              </button>
+            ))
+          )}
         </div>
-      ))}
-      <Button variant="outline" size="sm" onClick={() => setInstructors([...instructors, { userId: "", category: "LEAD" }])}>
-        <Plus className="mr-1 h-4 w-4" /> Add instructor
-      </Button>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Step 5 — FAQ                                                        */
-/* ------------------------------------------------------------------ */
-
-function StepFaq({ faqQuestions, setFaqQuestions }: { faqQuestions: Qa[]; setFaqQuestions: (v: Qa[]) => void }) {
-  return <RepeatableQa label="FAQ" items={faqQuestions} setItems={setFaqQuestions} allowEmpty />;
-}
-
-/* ------------------------------------------------------------------ */
-/* Step 6 — Submit                                                     */
-/* ------------------------------------------------------------------ */
-
-function StepSubmit({ title, curriculumCount, instructorCount, isNew }: {
-  title: string; curriculumCount: number; instructorCount: number; isNew: boolean;
-}) {
-  return (
-    <div className="space-y-2 text-sm">
-      <p>Review your course and submit.</p>
-      <ul className="list-inside list-disc text-muted-foreground">
-        <li>Title: <span className="text-foreground">{title || "—"}</span></li>
-        {isNew && <li>Curriculum sections: <span className="text-foreground">{curriculumCount}</span></li>}
-        <li>Instructors: <span className="text-foreground">{instructorCount}</span></li>
-      </ul>
-      <p className="text-muted-foreground">Required fields are validated on submit; you&apos;ll be told which step to fix.</p>
+      )}
     </div>
   );
 }

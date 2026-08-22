@@ -12,7 +12,6 @@ const fields = z.object({
   marks: z.coerce.number().int().min(1).max(1000),
   options: z.array(option).optional(),
   correctAnswer: z.union([z.array(z.string()), z.string()]).optional(),
-  tagIds: z.array(z.string()).optional(),
 });
 
 const schema = z.discriminatedUnion("action", [
@@ -47,21 +46,14 @@ export const POST = handler(async (req: Request) => {
 
   if (data.action === "create") {
     const question = await prisma.question.create({
-      data: {
-        ...payload,
-        authorId: user.id,
-        tags: data.tagIds?.length ? { connect: data.tagIds.map((id) => ({ id })) } : undefined,
-      },
+      data: { ...payload, authorId: user.id },
     });
     return ok({ question });
   }
 
   const question = await prisma.question.update({
     where: { id: data.id },
-    data: {
-      ...payload,
-      tags: { set: data.tagIds?.map((id) => ({ id })) ?? [] },
-    },
+    data: payload,
   });
   return ok({ question });
 });

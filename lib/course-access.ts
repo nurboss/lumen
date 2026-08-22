@@ -50,6 +50,6 @@ export async function unitCourseId(unitId: string): Promise<string> {
     where: { id: unitId },
     select: { section: { select: { courseId: true } } },
   });
-  if (!unit?.section.courseId) throw new AuthError("Unit not found", 404);
+  if (!unit?.section?.courseId) throw new AuthError("Unit not found", 404);
   return unit.section.courseId;
 }

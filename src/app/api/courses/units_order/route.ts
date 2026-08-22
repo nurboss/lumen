@@ -27,10 +27,14 @@ export const POST = handler(async (req: Request) => {
     return fail("Order list does not match the section's units.");
   }
 
-  await prisma.$transaction(
-    orderedUnitIds.map((id, index) =>
+  // Persist the new order on both the unit and its curriculum entry.
+  await prisma.$transaction([
+    ...orderedUnitIds.map((id, index) =>
       prisma.unit.update({ where: { id }, data: { order: index } })
-    )
-  );
+    ),
+    ...orderedUnitIds.map((id, index) =>
+      prisma.sectionItem.updateMany({ where: { unitId: id }, data: { order: index } })
+    ),
+  ]);
   return ok({ reordered: true });
 });

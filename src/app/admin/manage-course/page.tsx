@@ -5,7 +5,7 @@ import { CourseManager } from "@/components/admin/course-manager";
 export const dynamic = "force-dynamic";
 
 export default async function ManageCoursePage() {
-  const [courses, categories, authors, certificateTemplates, quizzes, assignments] =
+  const [courses, categories, authors, certificateTemplates, quizzes, assignments, units] =
     await Promise.all([
       prisma.course.findMany({
         where: { deletedAt: null },
@@ -41,6 +41,18 @@ export default async function ManageCoursePage() {
         orderBy: { createdAt: "desc" },
         select: { id: true, title: true },
       }),
+      prisma.unit.findMany({
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          title: true,
+          type: true,
+          description: true,
+          isFree: true,
+          publicVideoUrl: true,
+          storageVideoUrl: true,
+        },
+      }),
     ]);
 
   const courseOptions = courses.map((c) => ({ id: c.id, title: c.title }));
@@ -54,6 +66,7 @@ export default async function ManageCoursePage() {
         authors={authors}
         certificateTemplates={certificateTemplates}
         courseOptions={courseOptions}
+        units={units}
         quizzes={quizzes}
         assignments={assignments}
       />

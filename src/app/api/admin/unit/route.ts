@@ -6,7 +6,7 @@ import prisma from "@/lib/prisma";
 const durationUnit = z.enum(["SECOND", "MINUTE", "HOUR", "DAY", "WEEK", "MONTH", "YEAR"]);
 
 const fields = z.object({
-  sectionId: z.string().min(1, "Choose a section."),
+  sectionId: z.string().optional().or(z.literal("")),
   title: z.string().trim().min(1, "Enter a title.").max(200),
   description: z.string().trim().max(5000).optional().or(z.literal("")),
   order: z.coerce.number().int().min(0),
@@ -15,9 +15,11 @@ const fields = z.object({
   isFree: z.boolean(),
   duration: z.coerce.number().int().min(0).optional(),
   durationUnit: durationUnit.optional(),
+  marks: z.coerce.number().int().min(0).optional(),
   publicVideoUrl: z.string().trim().max(500).optional().or(z.literal("")),
   storageVideoUrl: z.string().trim().max(500).optional().or(z.literal("")),
   attachmentUrl: z.string().trim().max(500).optional().or(z.literal("")),
+  offlineText: z.string().trim().max(5000).optional().or(z.literal("")),
   startDate: z.string().optional().or(z.literal("")),
   startTime: z.string().trim().max(20).optional().or(z.literal("")),
 });
@@ -39,11 +41,13 @@ export const POST = handler(async (req: Request) => {
     return ok({ deleted: true });
   }
 
-  const section = await prisma.section.findUnique({ where: { id: data.sectionId }, select: { id: true } });
-  if (!section) return fail("Section not found.");
+  if (data.sectionId) {
+    const section = await prisma.section.findUnique({ where: { id: data.sectionId }, select: { id: true } });
+    if (!section) return fail("Section not found.");
+  }
 
   const payload = {
-    sectionId: data.sectionId,
+    sectionId: data.sectionId || null,
     title: data.title,
     description: data.description || null,
     order: data.order,
@@ -52,9 +56,11 @@ export const POST = handler(async (req: Request) => {
     isFree: data.isFree,
     duration: data.duration ?? null,
     durationUnit: data.durationUnit ?? null,
-    publicVideoUrl: data.publicVideoUrl || null,
-    storageVideoUrl: data.storageVideoUrl || null,
-    attachmentUrl: data.attachmentUrl || null,
+    marks: data.type === "VIDEO" || data.type === "LIVE" ? data.marks ?? null : null,
+    publicVideoUrl: data.type === "VIDEO" ? data.publicVideoUrl || null : null,
+    storageVideoUrl: data.type === "LIVE" ? data.storageVideoUrl || null : null,
+    attachmentUrl: data.type === "LIVE" ? data.attachmentUrl || null : null,
+    offlineText: data.type === "TEXT" ? data.offlineText || null : null,
     startDate: data.type === "LIVE" && data.startDate ? new Date(data.startDate) : null,
     startTime: data.type === "LIVE" ? data.startTime || null : null,
   };

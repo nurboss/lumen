@@ -137,7 +137,7 @@ async function main() {
     const existing = await prisma.course.findUnique({ where: { slug } });
     if (existing) continue;
 
-    await prisma.course.create({
+    const createdCourse = await prisma.course.create({
       data: {
         title: spec.title,
         shortTitle: spec.short,
@@ -175,6 +175,19 @@ async function main() {
         },
       },
     });
+
+    // Record each seeded unit as an ordered SectionItem (the curriculum entry).
+    const createdSections = await prisma.section.findMany({
+      where: { courseId: createdCourse.id },
+      include: { units: { orderBy: { order: "asc" } } },
+    });
+    for (const s of createdSections) {
+      for (const u of s.units) {
+        await prisma.sectionItem.create({
+          data: { sectionId: s.id, kind: "UNIT", unitId: u.id, order: u.order },
+        });
+      }
+    }
   }
 
   // A batch for the first course
@@ -203,7 +216,13 @@ async function main() {
       where: { courseId: firstCourse.id },
       orderBy: { order: "asc" },
     });
-    if (firstSection && !firstSection.quizId) {
+    const hasQuizItem = firstSection
+      ? await prisma.sectionItem.findFirst({
+          where: { sectionId: firstSection.id, kind: "QUIZ" },
+          select: { id: true },
+        })
+      : null;
+    if (firstSection && !hasQuizItem) {
       const quiz = await prisma.quiz.create({
         data: {
           title: "Getting Started Quiz",
@@ -265,9 +284,9 @@ async function main() {
         });
       }
 
-      await prisma.section.update({
-        where: { id: firstSection.id },
-        data: { quizId: quiz.id },
+      const unitCount = await prisma.unit.count({ where: { sectionId: firstSection.id } });
+      await prisma.sectionItem.create({
+        data: { sectionId: firstSection.id, kind: "QUIZ", quizId: quiz.id, order: unitCount },
       });
     }
   }

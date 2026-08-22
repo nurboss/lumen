@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { Lock, PlayCircle, Star, Clock, BarChart3 } from "lucide-react";
+import { Lock, PlayCircle, Star, Clock, BarChart3, FileQuestion, ClipboardList } from "lucide-react";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
@@ -29,7 +29,16 @@ export default async function CourseDetailsPage({
       author: { select: { fullName: true, bio: true } },
       sections: {
         orderBy: { order: "asc" },
-        include: { units: { orderBy: { order: "asc" } } },
+        include: {
+          items: {
+            orderBy: { order: "asc" },
+            include: {
+              unit: true,
+              quiz: { select: { id: true, title: true } },
+              assignment: { select: { id: true, title: true } },
+            },
+          },
+        },
       },
       reviews: {
         orderBy: { createdAt: "desc" },
@@ -53,7 +62,10 @@ export default async function CourseDetailsPage({
 
   const price = effectivePrice(course);
   const whatWillLearn = (course.whatWillLearn as string[] | null) ?? [];
-  const totalUnits = course.sections.reduce((n, s) => n + s.units.length, 0);
+  const totalUnits = course.sections.reduce(
+    (n, s) => n + s.items.filter((i) => i.kind === "UNIT").length,
+    0
+  );
   const avgRating =
     course.reviews.length > 0
       ? course.reviews.reduce((s, r) => s + r.rating, 0) / course.reviews.length
@@ -120,15 +132,35 @@ export default async function CourseDetailsPage({
                     <AccordionTrigger className="text-left font-medium">
                       {section.title}
                       <span className="ml-auto mr-2 text-xs font-normal text-muted-foreground">
-                        {section.units.length} lessons
+                        {section.items.length} items
                       </span>
                     </AccordionTrigger>
                     <AccordionContent>
                       <ul className="space-y-1">
-                        {section.units.map((unit) => {
+                        {section.items.map((item) => {
+                          if (item.kind === "QUIZ" && item.quiz) {
+                            return (
+                              <li key={item.id} className="flex items-center gap-2 py-1.5 text-sm">
+                                <FileQuestion className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                <span className="text-foreground">{item.quiz.title}</span>
+                                <Badge variant="outline" className="ml-auto text-[0.65rem]">Quiz</Badge>
+                              </li>
+                            );
+                          }
+                          if (item.kind === "ASSIGNMENT" && item.assignment) {
+                            return (
+                              <li key={item.id} className="flex items-center gap-2 py-1.5 text-sm">
+                                <ClipboardList className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                <span className="text-foreground">{item.assignment.title}</span>
+                                <Badge variant="outline" className="ml-auto text-[0.65rem]">Assignment</Badge>
+                              </li>
+                            );
+                          }
+                          if (!item.unit) return null;
+                          const unit = item.unit;
                           const unlocked = sectionUnlocked || unit.isFree;
                           return (
-                            <li key={unit.id} className="flex items-center gap-2 py-1.5 text-sm">
+                            <li key={item.id} className="flex items-center gap-2 py-1.5 text-sm">
                               {unlocked ? (
                                 <PlayCircle className="h-4 w-4 shrink-0 text-primary" />
                               ) : (

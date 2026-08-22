@@ -43,7 +43,7 @@ export default async function StudentLiveClassPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium text-foreground">{unit.title}</p>
-                    <p className="text-sm text-muted-foreground">{unit.section.course?.title}</p>
+                    <p className="text-sm text-muted-foreground">{unit.section?.course?.title}</p>
                   </div>
                   <Badge>Live now</Badge>
                 </div>
