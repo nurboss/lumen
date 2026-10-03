@@ -6,6 +6,8 @@ import {
   Palette,
   ChartNoAxesCombined,
   Sparkles,
+  Users,
+  ArrowUpRight,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -31,7 +33,7 @@ export function CourseCard({
   appearance = "default",
 }: {
   course: CourseCardData;
-  appearance?: "default" | "home";
+  appearance?: "default" | "home" | "catalog";
 }) {
   const price = effectivePrice(course);
   const hasDiscount =
@@ -64,7 +66,7 @@ export function CourseCard({
               alt={course.title}
               className="h-full w-full object-cover"
             />
-          ) : appearance === "home" ? (
+          ) : appearance !== "default" ? (
             <div
               className={`home-course-art home-course-art-${coverTone}`}
               aria-hidden="true"
@@ -92,6 +94,16 @@ export function CourseCard({
           ) : null}
         </div>
         <CardContent className="p-4">
+          {appearance === "catalog" && (
+            <div className="mb-3 flex items-center justify-between gap-2 text-[10px] font-medium text-muted-foreground">
+              <span className="rounded-md bg-secondary px-2 py-1 text-primary">
+                {course.level.charAt(0) + course.level.slice(1).toLowerCase()}
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <BookOpen className="size-3" /> Course
+              </span>
+            </div>
+          )}
           {course.category && (
             <p className="mb-1 text-xs text-muted-foreground">
               {course.category.name}
@@ -105,6 +117,15 @@ export function CourseCard({
               by {course.author.fullName}
             </p>
           )}
+          {appearance === "catalog" &&
+            course._count?.enrollments !== undefined && (
+              <p className="mb-4 flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Users className="size-3.5" />
+                {course._count.enrollments > 0
+                  ? `${course._count.enrollments} ${course._count.enrollments === 1 ? "learner" : "learners"}`
+                  : "Be one of the first to join"}
+              </p>
+            )}
           <div className="flex items-center justify-between">
             <div className="flex items-baseline gap-2">
               {course.isFree ? (
@@ -127,9 +148,16 @@ export function CourseCard({
                 <span className="flex items-center gap-1 text-xs text-muted-foreground">
                   <Star className="h-3.5 w-3.5 fill-accent text-accent" />
                   {course._count.reviews}
+                  {appearance === "catalog" && " reviews"}
                 </span>
               )}
           </div>
+          {appearance === "catalog" && (
+            <div className="mt-4 flex items-center justify-between border-t border-border pt-4 text-xs font-semibold text-primary">
+              Explore course{" "}
+              <ArrowUpRight className="size-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+            </div>
+          )}
         </CardContent>
       </Card>
     </Link>

@@ -364,3 +364,39 @@
 .home-cover-rule { display: block; width: 43px; height: 2px; border-radius: 2px; background: currentColor; opacity: 0.5; }
 .home-cover-rule.short { width: 27px; }
 .home-course-grid > a:hover .home-cover-book { transform: rotate(-6deg) translateY(-3px); }
+
+/* Course catalog shares the homepage's paper and botanical palette. */
+@layer components {
+  .catalog-filter-panel { @apply rounded-2xl border border-border bg-card p-5; }
+  .catalog-category { @apply flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary/50 hover:text-primary; }
+  .catalog-category-active { @apply bg-secondary text-primary; }
+  .catalog-filter-label { @apply block text-[10px] font-semibold uppercase tracking-widest text-muted-foreground; }
+  .catalog-select { @apply min-h-10 min-w-0 rounded-lg border border-border bg-card px-3 py-2 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/40; }
+  .catalog-empty { @apply rounded-2xl border border-dashed border-border bg-card/50 px-6 py-16 text-center; }
+  .catalog-page-link { @apply inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-xs font-medium; }
+}
+.course-catalog a:focus-visible, .course-catalog button:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 4px;
+}
+.catalog-hero { background: radial-gradient(ellipse at 85% 25%, color-mix(in oklch, var(--secondary) 85%, transparent), transparent 60%); }
+.catalog-hero-art { position: relative; display: flex; flex-shrink: 0; align-items: center; justify-content: center; width: 300px; height: 235px; margin-right: 60px; }
+.catalog-art-orbit { position: absolute; width: 240px; height: 240px; border: 1px dashed color-mix(in oklch, var(--primary) 25%, transparent); border-radius: 50%; }
+.catalog-art-book { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 165px; height: 205px; border: 1px solid #ffffff30; border-left: 8px solid #779681; border-radius: 4px 15px 15px 4px; background: #244c3d; color: #f1dfab; box-shadow: 12px 14px 0 color-mix(in oklch, var(--primary) 12%, transparent); transform: rotate(-12deg); }
+.catalog-art-sprout { position: absolute; right: 24px; bottom: 7px; display: flex; align-items: center; justify-content: center; width: 55px; height: 55px; border: 1px solid var(--border); border-radius: 14px; background: var(--card); color: var(--primary); transform: rotate(10deg); }
+.catalog-course-grid [data-slot="card"] { gap: 0; padding-bottom: 0; }
+.catalog-course-grid [data-slot="card-content"] { padding: 20px; }
+.catalog-course-grid [data-slot="card-content"] h3 { min-height: 48px; font-size: 17px; line-height: 24px; }
+.catalog-course-grid [data-slot="card"] > div:first-child { height: 180px; }
+.catalog-batch-grid [data-slot="card"] { border-radius: 16px; box-shadow: none; }
+.catalog-batch-grid [data-slot="card"] > a > div:first-child { background: #244c3d; }
+.catalog-batch-grid [data-slot="card"] > a > div:first-child > svg { color: #f1dfab; }
+.catalog-single-batch { grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 640px) {
+  .catalog-single-batch [data-slot="card"] { display: grid; grid-template-columns: 1fr 1fr; gap: 0; padding-bottom: 0; }
+  .catalog-single-batch [data-slot="card"] > a { padding-bottom: 24px; }
+  .catalog-single-batch [data-slot="card"] > a > div:first-child { height: 160px; }
+  .catalog-single-batch [data-slot="card-content"] { padding-top: 24px; padding-bottom: 24px; border-left: 1px solid var(--border); }
+}
+@media (max-width: 1023px) { .catalog-hero-art { width: 220px; margin-right: 0; } }
+@media (max-width: 767px) { .catalog-hero-art { display: none; } }
