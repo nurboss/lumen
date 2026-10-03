@@ -18,11 +18,43 @@ export interface PlayerUnit {
   locked: boolean;
 }
 
-// A section's curriculum entry: a playable unit, or a link to a quiz/assignment.
+export interface PlayerQuizQuestion {
+  id: string;
+  text: string;
+  type: string;
+  options: { id: string; text: string }[];
+  marks: number;
+}
+
+export interface PlayerQuiz {
+  id: string;
+  title: string;
+  durationMinutes: number | null;
+  passingMarks: number | null;
+  questions: PlayerQuizQuestion[];
+  completed: boolean;
+  passed: boolean;
+  score: number | null;
+  locked: boolean;
+}
+
+export interface PlayerAssignment {
+  id: string;
+  title: string;
+  description: string | null;
+  submissionType: string;
+  maximumMarks: number;
+  completed: boolean;
+  locked: boolean;
+}
+
+// A section's curriculum entry, rendered inline in the player queue: a playable
+// unit, a quiz, or an assignment. Every kind carries its own completion/lock
+// state so the player can gate them in one ordered sequence.
 export type PlayerItem =
   | ({ kind: "unit" } & PlayerUnit)
-  | { kind: "quiz"; id: string; title: string }
-  | { kind: "assignment"; id: string; title: string };
+  | ({ kind: "quiz" } & PlayerQuiz)
+  | ({ kind: "assignment" } & PlayerAssignment);
 
 export interface PlayerSection {
   id: string;
@@ -43,6 +75,8 @@ export interface PlayerData {
   sections: PlayerSection[];
   totalUnits: number;
   completedUnits: number;
+  totalItems: number;
+  completedItems: number;
 }
 
 /**
@@ -90,8 +124,31 @@ export async function getPlayerData(
                   duration: true,
                 },
               },
-              quiz: { select: { id: true, title: true } },
-              assignment: { select: { id: true, title: true } },
+              quiz: {
+                select: {
+                  id: true,
+                  title: true,
+                  durationMinutes: true,
+                  passingMarks: true,
+                  questions: {
+                    orderBy: { order: "asc" },
+                    select: {
+                      question: {
+                        select: { id: true, text: true, type: true, options: true, marks: true },
+                      },
+                    },
+                  },
+                },
+              },
+              assignment: {
+                select: {
+                  id: true,
+                  title: true,
+                  description: true,
+                  submissionType: true,
+                  maximumMarks: true,
+                },
+              },
             },
           },
         },
@@ -117,55 +174,126 @@ export async function getPlayerData(
     : [];
   const progressByUnit = new Map(progressRows.map((p) => [p.unitId, p]));
 
+  // Quiz + assignment completion state for the same user, so all curriculum
+  // kinds can be gated in one ordered queue.
+  const quizIds = course.sections.flatMap((s) =>
+    s.items.map((i) => i.quiz?.id).filter((x): x is string => Boolean(x))
+  );
+  const assignmentIds = course.sections.flatMap((s) =>
+    s.items.map((i) => i.assignment?.id).filter((x): x is string => Boolean(x))
+  );
+
+  const quizResults = userId && quizIds.length
+    ? await prisma.quizResult.findMany({
+        where: { userId, quizId: { in: quizIds } },
+        orderBy: { submittedAt: "desc" },
+        select: { quizId: true, passed: true, score: true },
+      })
+    : [];
+  const quizStateById = new Map<string, { passed: boolean; score: number }>();
+  for (const r of quizResults) {
+    const cur = quizStateById.get(r.quizId);
+    // Keep the best attempt (passed wins, else highest score).
+    if (!cur || (r.passed && !cur.passed) || r.score > cur.score) {
+      quizStateById.set(r.quizId, { passed: r.passed, score: r.score });
+    }
+  }
+
+  const submittedAssignments = userId && assignmentIds.length
+    ? await prisma.assignmentSubmission.findMany({
+        where: { userId, assignmentId: { in: assignmentIds } },
+        select: { assignmentId: true },
+      })
+    : [];
+  const submittedAssignmentIds = new Set(submittedAssignments.map((s) => s.assignmentId));
+
+  // Strict sequential gating: an item unlocks only once every prior item in the
+  // ordered curriculum (across all kinds) is complete. The first incomplete item
+  // is the "frontier" — everything after it stays locked.
   let priorAllComplete = true;
   let totalUnits = 0;
+  let totalItems = 0;
+  let completedItems = 0;
 
-  const sections: PlayerSection[] = course.sections.map((section, si) => ({
+  const sections: PlayerSection[] = course.sections.map((section) => ({
     id: section.id,
     title: section.title,
     order: section.order,
-    items: section.items.map((item): PlayerItem => {
-      if (item.kind === "QUIZ" && item.quiz) {
-        return { kind: "quiz", id: item.quiz.id, title: item.quiz.title };
-      }
-      if (item.kind === "ASSIGNMENT" && item.assignment) {
-        return { kind: "assignment", id: item.assignment.id, title: item.assignment.title };
-      }
-      // UNIT (fallback also covers orphaned refs, filtered below)
-      const unit = item.unit!;
-      totalUnits += 1;
-      const p = progressByUnit.get(unit.id);
-      const completed = p?.completed ?? false;
+    items: section.items
+      .map((item): PlayerItem | null => {
+        const locked = enrolled ? !priorAllComplete : true;
 
-      let locked: boolean;
-      if (!enrolled) {
-        locked = !(unit.isFree || (course.firstSectionFree && si === 0));
-      } else if (course.unitCompletionLock) {
-        locked = !priorAllComplete && !unit.isFree;
-      } else {
-        locked = false;
-      }
+        if (item.kind === "QUIZ" && item.quiz) {
+          const state = quizStateById.get(item.quiz.id);
+          const completed = Boolean(state);
+          totalItems += 1;
+          if (completed) completedItems += 1;
+          else priorAllComplete = false;
+          return {
+            kind: "quiz",
+            id: item.quiz.id,
+            title: item.quiz.title,
+            durationMinutes: item.quiz.durationMinutes,
+            passingMarks: item.quiz.passingMarks,
+            questions: item.quiz.questions.map((qq) => ({
+              id: qq.question.id,
+              text: qq.question.text,
+              type: qq.question.type,
+              options: (qq.question.options as { id: string; text: string }[] | null) ?? [],
+              marks: qq.question.marks,
+            })),
+            completed,
+            passed: state?.passed ?? false,
+            score: state?.score ?? null,
+            locked,
+          };
+        }
 
-      // Update running "all prior complete" state for the lock computation.
-      if (!completed) priorAllComplete = false;
+        if (item.kind === "ASSIGNMENT" && item.assignment) {
+          const completed = submittedAssignmentIds.has(item.assignment.id);
+          totalItems += 1;
+          if (completed) completedItems += 1;
+          else priorAllComplete = false;
+          return {
+            kind: "assignment",
+            id: item.assignment.id,
+            title: item.assignment.title,
+            description: item.assignment.description,
+            submissionType: item.assignment.submissionType,
+            maximumMarks: item.assignment.maximumMarks,
+            completed,
+            locked,
+          };
+        }
 
-      return {
-        kind: "unit",
-        id: unit.id,
-        title: unit.title,
-        order: unit.order,
-        type: unit.type,
-        isFree: unit.isFree,
-        publicVideoUrl: unit.publicVideoUrl,
-        storageVideoUrl: unit.storageVideoUrl,
-        attachmentUrl: unit.attachmentUrl,
-        description: unit.description,
-        duration: unit.duration,
-        completed,
-        lastPositionSeconds: p?.lastPositionSeconds ?? 0,
-        locked,
-      };
-    }).filter((it) => it.kind !== "unit" || it.id),
+        // UNIT (fallback also covers orphaned refs, filtered below)
+        const unit = item.unit;
+        if (!unit) return null;
+        totalUnits += 1;
+        totalItems += 1;
+        const p = progressByUnit.get(unit.id);
+        const completed = p?.completed ?? false;
+        if (completed) completedItems += 1;
+        else priorAllComplete = false;
+
+        return {
+          kind: "unit",
+          id: unit.id,
+          title: unit.title,
+          order: unit.order,
+          type: unit.type,
+          isFree: unit.isFree,
+          publicVideoUrl: unit.publicVideoUrl,
+          storageVideoUrl: unit.storageVideoUrl,
+          attachmentUrl: unit.attachmentUrl,
+          description: unit.description,
+          duration: unit.duration,
+          completed,
+          lastPositionSeconds: p?.lastPositionSeconds ?? 0,
+          locked,
+        };
+      })
+      .filter((it): it is PlayerItem => it !== null),
   }));
 
   const completedUnits = progressRows.filter((p) => p.completed).length;
@@ -182,6 +310,8 @@ export async function getPlayerData(
     sections,
     totalUnits,
     completedUnits,
+    totalItems,
+    completedItems,
   };
 }
 

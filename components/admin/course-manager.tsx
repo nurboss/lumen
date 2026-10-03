@@ -3,7 +3,21 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Plus, Pencil, Trash2, X, ChevronDown, ChevronUp, Check } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  X,
+  ChevronDown,
+  ChevronUp,
+  Check,
+  Upload,
+  ImageIcon,
+  Video,
+  FileText,
+  ClipboardList,
+  Layers,
+} from "lucide-react";
 import {
   Table,
   TableBody,
@@ -101,6 +115,20 @@ interface CurriculumSection {
   items: CurriculumItem[];
 }
 
+// Read-only shape of an existing course's saved curriculum (edit mode).
+interface SavedSectionItem {
+  id: string;
+  kind: "UNIT" | "QUIZ" | "ASSIGNMENT";
+  unit: { title: string; type: string } | null;
+  quiz: { title: string } | null;
+  assignment: { title: string } | null;
+}
+interface SavedSection {
+  id: string;
+  title: string;
+  items: SavedSectionItem[];
+}
+
 // A unit fetched from its table — carries the fields we copy into the new section.
 interface UnitOpt {
   id: string;
@@ -148,6 +176,7 @@ interface Course {
   prerequisiteCourseId: string | null;
   courseRetakes: number | null;
   instructors: CourseInstructor[];
+  sections: SavedSection[];
   category: { name: string } | null;
   author: { fullName: string } | null;
   _count: { enrollments: number };
@@ -478,18 +507,22 @@ function CourseWizard({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex h-[90vh] w-[90vw] max-w-[90vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-[90vw]">
         {/* Fixed header + stepper */}
-        <div className="space-y-4 border-b bg-card px-6 pt-5 pb-4">
-          <DialogHeader>
-            <DialogTitle>{editing ? "Edit course" : "Add course"}</DialogTitle>
+        <div className="space-y-5 border-b bg-card px-6 pt-5 pb-5">
+          <DialogHeader className="space-y-1">
+            <p className="eyebrow">{editing ? "Manage course" : "New course"}</p>
+            <DialogTitle className="font-heading text-xl leading-tight">
+              {editing ? editing.title || "Edit course" : "Create a course"}
+            </DialogTitle>
           </DialogHeader>
           <Stepper step={step} setStep={setStep} />
         </div>
 
         {/* Scrollable body */}
-        <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
-          <div>
-            <h3 className="font-heading text-base font-medium">{STEPS[step]}</h3>
-            <p className="text-sm text-muted-foreground">{STEP_HINTS[step]}</p>
+        <div className="mx-auto w-full max-w-3xl flex-1 space-y-6 overflow-y-auto px-6 py-6">
+          <div className="margin-note">
+            <p className="eyebrow">Step {step + 1} of {STEPS.length}</p>
+            <h3 className="font-heading text-lg font-semibold">{STEPS[step]}</h3>
+            <p className="mt-0.5 text-sm text-muted-foreground">{STEP_HINTS[step]}</p>
           </div>
 
           {step === 0 && (
@@ -535,6 +568,7 @@ function CourseWizard({
               units={units}
               quizzes={quizzes}
               assignments={assignments}
+              savedSections={editing?.sections ?? []}
             />
           )}
 
@@ -544,19 +578,20 @@ function CourseWizard({
         </div>
 
         {/* Sticky footer */}
-        <div className="flex items-center justify-between gap-2 border-t bg-muted/40 px-6 py-3">
-          <Button variant="outline" disabled={step === 0} onClick={() => setStep((s) => Math.max(0, s - 1))}>
-            Back
-          </Button>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground">Step {step + 1} of {STEPS.length}</span>
-            {step < STEPS.length - 1 ? (
-              <Button onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}>Next</Button>
-            ) : (
-              <Button onClick={submit} disabled={busy}>
-                {editing ? "Save changes" : "Create course"}
-              </Button>
-            )}
+        <div className="border-t bg-card px-6 py-3.5">
+          <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-2">
+            <Button variant="outline" disabled={step === 0} onClick={() => setStep((s) => Math.max(0, s - 1))}>
+              Back
+            </Button>
+            <div className="flex items-center gap-3">
+              {step < STEPS.length - 1 ? (
+                <Button onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}>Continue</Button>
+              ) : (
+                <Button onClick={submit} disabled={busy}>
+                  {busy ? "Saving…" : editing ? "Save changes" : "Create course"}
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </DialogContent>
@@ -570,34 +605,42 @@ function CourseWizard({
 
 function Stepper({ step, setStep }: { step: number; setStep: (n: number) => void }) {
   return (
-    <ol className="flex items-center gap-1 overflow-x-auto pb-1">
+    <ol className="flex items-center">
       {STEPS.map((s, i) => {
         const state = i === step ? "active" : i < step ? "done" : "todo";
         return (
-          <li key={s} className="flex shrink-0 items-center">
+          <li key={s} className={`flex items-center ${i < STEPS.length - 1 ? "flex-1" : ""}`}>
             <button
               type="button"
               onClick={() => setStep(i)}
-              className={`flex items-center gap-2 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
-                state === "active"
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
+              className="group flex items-center gap-2.5 text-left"
             >
               <span
-                className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-semibold ${
+                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold transition ${
                   state === "active"
-                    ? "bg-primary text-primary-foreground"
+                    ? "bg-primary text-primary-foreground ring-4 ring-primary/15"
                     : state === "done"
-                      ? "bg-primary/20 text-primary"
-                      : "bg-muted text-muted-foreground"
+                      ? "bg-primary/15 text-primary"
+                      : "bg-muted text-muted-foreground group-hover:bg-muted-foreground/20"
                 }`}
               >
-                {state === "done" ? <Check className="h-3 w-3" /> : i + 1}
+                {state === "done" ? <Check className="h-4 w-4" /> : i + 1}
               </span>
-              <span className="hidden sm:inline">{s}</span>
+              <span
+                className={`hidden text-sm font-medium transition sm:inline ${
+                  state === "todo" ? "text-muted-foreground" : "text-foreground"
+                }`}
+              >
+                {s}
+              </span>
             </button>
-            {i < STEPS.length - 1 && <span className="mx-0.5 h-px w-3 shrink-0 bg-border sm:w-5" />}
+            {i < STEPS.length - 1 && (
+              <span
+                className={`mx-3 h-0.5 flex-1 rounded-full transition-colors ${
+                  i < step ? "bg-primary/40" : "bg-border"
+                }`}
+              />
+            )}
           </li>
         );
       })}
@@ -605,25 +648,49 @@ function Stepper({ step, setStep }: { step: number; setStep: (n: number) => void
   );
 }
 
-function Group({ title, children }: { title: string; children: React.ReactNode }) {
+function Group({
+  title,
+  hint,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <section className="space-y-4 rounded-xl border border-border/60 bg-muted/15 p-4">
-      <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h4>
+    <section className="space-y-4 rounded-xl border border-border bg-card p-5 shadow-sm">
+      <div className="space-y-0.5">
+        <h4 className="font-heading text-sm font-semibold text-foreground">{title}</h4>
+        {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+      </div>
       {children}
     </section>
   );
 }
 
-function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+function Toggle({
+  label,
+  hint,
+  checked,
+  onChange,
+}: {
+  label: string;
+  hint?: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
   return (
-    <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm transition has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+    <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-background px-3.5 py-3 text-sm transition hover:border-muted-foreground/40 has-[:checked]:border-primary has-[:checked]:bg-primary/5">
       <input
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className="h-4 w-4 accent-primary"
+        className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
       />
-      {label}
+      <span className="min-w-0">
+        <span className="block font-medium leading-tight">{label}</span>
+        {hint && <span className="mt-0.5 block text-xs text-muted-foreground">{hint}</span>}
+      </span>
     </label>
   );
 }
@@ -658,7 +725,8 @@ function SelectField({
 function StepOverview(p: any) {
   return (
     <div className="space-y-5">
-      <Group title="Basics">
+      <Group title="Basics" hint="The essentials students see first.">
+
         <div className="grid gap-4 sm:grid-cols-2">
           <SelectField label="Course Category *" value={p.categoryId} onChange={p.setCategoryId}>
             <SelectItem value={NONE}>— Select category —</SelectItem>
@@ -697,7 +765,8 @@ function StepOverview(p: any) {
         )}
       </Group>
 
-      <Group title="Pricing">
+      <Group title="Pricing & schedule" hint="Set what students pay and when the course runs.">
+
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="space-y-2">
             <Label>Regular Price (৳) *</Label>
@@ -744,7 +813,8 @@ function StepOverview(p: any) {
         </div>
       </Group>
 
-      <Group title="What students get">
+      <Group title="What students get" hint="Sell the outcome — the skills and answers that win enrolments.">
+
         <RepeatableText
           label="What will be taught *"
           items={p.whatWillBeTaught}
@@ -765,7 +835,7 @@ function StepMedia(p: any) {
   return (
     <div className="space-y-5">
       {!p.isNew && (
-        <Group title="Badge & certificate">
+        <Group title="Badge & certificate" hint="Reward students who complete the course.">
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-2">
               <Label>Badge Percentage * (0–100)</Label>
@@ -793,39 +863,43 @@ function StepMedia(p: any) {
         </Group>
       )}
 
-      <Group title="Media">
+      <Group title="Media" hint="A sharp thumbnail and a short promo video help the course convert.">
         <div className="grid gap-4 sm:grid-cols-2">
-          {!p.isNew && (
-            <FileField
-              label="Excellence Badge (jpg/png)"
-              url={p.badgeImageUrl}
-              uploading={p.uploadingBadge}
-              onFile={p.onUploadBadge}
-              previewClass="h-16 w-16"
-            />
-          )}
           <FileField
-            label="Course Thumbnail (jpg/png, ~575×450, ≤1MB)"
+            label="Course thumbnail"
+            hint="JPG or PNG · ~575×450 · ≤ 1 MB"
             url={p.thumbnailUrl}
             uploading={p.uploadingThumb}
             onFile={p.onUploadThumb}
-            previewClass="h-16 w-28"
+            onClear={() => p.setThumbnailUrl("")}
+            aspect="video"
           />
+          {!p.isNew && (
+            <FileField
+              label="Excellence badge"
+              hint="JPG or PNG · square"
+              url={p.badgeImageUrl}
+              uploading={p.uploadingBadge}
+              onFile={p.onUploadBadge}
+              onClear={() => p.setBadgeImageUrl("")}
+              aspect="square"
+            />
+          )}
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <SelectField label="Video Source" value={p.videoProvider} onChange={p.setVideoProvider}>
+          <SelectField label="Video source" value={p.videoProvider} onChange={p.setVideoProvider}>
             <SelectItem value={NONE}>— None —</SelectItem>
             {VIDEO_PROVIDERS.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
           </SelectField>
           <div className="space-y-2">
-            <Label>Promo Video Link</Label>
+            <Label>Promo video link</Label>
             <Input value={p.previewVideoUrl} onChange={(e: any) => p.setPreviewVideoUrl(e.target.value)} placeholder="https://…" />
           </div>
         </div>
       </Group>
 
       {!p.isNew && (
-        <Group title="Advanced">
+        <Group title="Advanced" hint="Optional prerequisites and retake limits.">
           <div className="grid gap-4 sm:grid-cols-2">
             <SelectField label="Prerequisite Course" value={p.prerequisiteCourseId} onChange={p.setPrerequisiteCourseId}>
               <SelectItem value={NONE}>— None —</SelectItem>
@@ -845,22 +919,78 @@ function StepMedia(p: any) {
 }
 
 function FileField({
-  label, url, uploading, onFile, previewClass,
-}: { label: string; url: string; uploading: boolean; onFile: (f: File) => void; previewClass: string }) {
+  label,
+  hint,
+  url,
+  uploading,
+  onFile,
+  onClear,
+  aspect = "video",
+}: {
+  label: string;
+  hint?: string;
+  url: string;
+  uploading: boolean;
+  onFile: (f: File) => void;
+  onClear: () => void;
+  aspect?: "video" | "square";
+}) {
+  const inputId = `file-${label.replace(/[^a-z]/gi, "").toLowerCase()}`;
+  const frame = aspect === "square" ? "aspect-square max-w-[9rem]" : "aspect-video";
+
   return (
     <div className="space-y-2">
-      <Label>{label}</Label>
-      <div className="flex items-center gap-3">
-        {url && !uploading && (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img src={url} alt="preview" className={`shrink-0 rounded-md object-cover ring-1 ring-border ${previewClass}`} />
-        )}
-        <div className="min-w-0 flex-1">
-          <Input type="file" accept=".jpg,.jpeg,.png"
-            onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} />
-          {uploading && <p className="mt-1 text-xs text-muted-foreground">Uploading…</p>}
+      <Label htmlFor={inputId}>{label}</Label>
+      <input
+        id={inputId}
+        type="file"
+        accept=".jpg,.jpeg,.png"
+        className="sr-only"
+        onChange={(e) => {
+          if (e.target.files?.[0]) onFile(e.target.files[0]);
+          e.target.value = "";
+        }}
+      />
+
+      {url && !uploading ? (
+        <div className={`group relative overflow-hidden rounded-xl border border-border ${frame}`}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={url} alt={`${label} preview`} className="h-full w-full object-cover" />
+          <div className="absolute inset-0 flex items-center justify-center gap-2 bg-foreground/50 opacity-0 backdrop-blur-[1px] transition group-hover:opacity-100">
+            <Button
+              size="sm"
+              variant="secondary"
+              className="cursor-pointer"
+              render={<label htmlFor={inputId} />}
+            >
+              <Upload className="mr-1 h-3.5 w-3.5" /> Replace
+            </Button>
+            <Button size="sm" variant="secondary" onClick={onClear}>
+              <Trash2 className="mr-1 h-3.5 w-3.5" /> Remove
+            </Button>
+          </div>
         </div>
-      </div>
+      ) : (
+        <label
+          htmlFor={inputId}
+          className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/20 px-4 py-6 text-center transition hover:border-primary/50 hover:bg-primary/5 ${frame}`}
+        >
+          {uploading ? (
+            <>
+              <Upload className="h-6 w-6 animate-pulse text-primary" />
+              <span className="text-sm font-medium text-muted-foreground">Uploading…</span>
+            </>
+          ) : (
+            <>
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <ImageIcon className="h-5 w-5" />
+              </span>
+              <span className="text-sm font-medium text-foreground">Click to upload</span>
+              {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
+            </>
+          )}
+        </label>
+      )}
     </div>
   );
 }
@@ -869,6 +999,13 @@ function FileField({
 /* Step 3 — Curriculum builder                                         */
 /* ------------------------------------------------------------------ */
 
+/* Icon + accent colour for each curriculum item kind, keyed lower-case. */
+const KIND_META = {
+  unit: { Icon: Video, label: "Unit", tint: "text-primary bg-primary/10" },
+  quiz: { Icon: ClipboardList, label: "Quiz", tint: "text-chart-5 bg-chart-5/10" },
+  assignment: { Icon: FileText, label: "Assignment", tint: "text-accent-foreground bg-accent/25" },
+} as const;
+
 function StepCurriculum({
   isNew,
   curriculum,
@@ -876,6 +1013,7 @@ function StepCurriculum({
   units,
   quizzes,
   assignments,
+  savedSections,
 }: {
   isNew: boolean;
   curriculum: CurriculumSection[];
@@ -883,14 +1021,10 @@ function StepCurriculum({
   units: UnitOpt[];
   quizzes: Opt[];
   assignments: Opt[];
+  savedSections: SavedSection[];
 }) {
   if (!isNew) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        Curriculum (sections, units, quizzes, assignments) is managed from the Section and Unit
-        managers after creation, so existing content and student progress are preserved.
-      </p>
-    );
+    return <SavedCurriculum sections={savedSections} />;
   }
 
   function update(i: number, patch: Partial<CurriculumSection>) {
@@ -930,73 +1064,158 @@ function StepCurriculum({
         const hasQuiz = section.items.some((it) => it.kind === "quiz");
         const hasAssignment = section.items.some((it) => it.kind === "assignment");
         return (
-          <div key={i} className="space-y-3 rounded-lg border border-border p-3">
-            <div className="flex items-center gap-2">
-              <Badge variant="outline">#{i + 1}</Badge>
+          <div key={i} className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+            {/* Section header */}
+            <div className="flex items-center gap-2 border-b border-border bg-muted/30 px-3 py-2.5">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                {i + 1}
+              </span>
               <Input
                 value={section.title}
                 placeholder="Section title"
+                className="h-9 border-transparent bg-transparent px-2 font-heading text-sm font-semibold shadow-none focus-visible:border-input focus-visible:bg-background"
                 onChange={(e) => update(i, { title: e.target.value })}
               />
-              <Button variant="ghost" size="icon" onClick={() => moveSection(i, -1)} aria-label="Move section up"><ChevronUp className="h-4 w-4" /></Button>
-              <Button variant="ghost" size="icon" onClick={() => moveSection(i, 1)} aria-label="Move section down"><ChevronDown className="h-4 w-4" /></Button>
-              <Button variant="ghost" size="icon" onClick={() => setCurriculum(curriculum.filter((_, idx) => idx !== i))} aria-label="Delete section">
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </Button>
+              <div className="flex shrink-0 items-center">
+                <Button variant="ghost" size="icon" className="h-8 w-8" disabled={i === 0} onClick={() => moveSection(i, -1)} aria-label="Move section up"><ChevronUp className="h-4 w-4" /></Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8" disabled={i === curriculum.length - 1} onClick={() => moveSection(i, 1)} aria-label="Move section down"><ChevronDown className="h-4 w-4" /></Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurriculum(curriculum.filter((_, idx) => idx !== i))} aria-label="Delete section">
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </div>
             </div>
 
             {/* Ordered items: units, quizzes and assignments in any order */}
-            <div className="space-y-2">
+            <div className="space-y-2 p-3">
               {section.items.length === 0 && (
-                <p className="rounded-md border border-dashed border-border/70 px-3 py-4 text-center text-xs text-muted-foreground">
-                  No content yet. Add a unit, quiz or assignment below.
+                <p className="rounded-lg border border-dashed border-border px-3 py-5 text-center text-xs text-muted-foreground">
+                  Empty section. Add a unit, quiz or assignment below.
                 </p>
               )}
-              {section.items.map((item, ii) => (
-                <div key={ii} className="flex items-start gap-2 rounded-md border border-border/70 p-2">
-                  <div className="flex flex-col">
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => moveItem(i, ii, -1)} aria-label="Move item up"><ChevronUp className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => moveItem(i, ii, 1)} aria-label="Move item down"><ChevronDown className="h-4 w-4" /></Button>
+              {section.items.map((item, ii) => {
+                const meta = KIND_META[item.kind];
+                return (
+                  <div key={ii} className="flex items-center gap-2 rounded-lg border border-border bg-background p-2">
+                    <div className="flex flex-col">
+                      <Button variant="ghost" size="icon" className="h-5 w-6" disabled={ii === 0} onClick={() => moveItem(i, ii, -1)} aria-label="Move item up"><ChevronUp className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-5 w-6" disabled={ii === section.items.length - 1} onClick={() => moveItem(i, ii, 1)} aria-label="Move item down"><ChevronDown className="h-3.5 w-3.5" /></Button>
+                    </div>
+                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${meta.tint}`} title={meta.label}>
+                      <meta.Icon className="h-4 w-4" />
+                    </span>
+
+                    <div className="flex-1">
+                      <SearchSelect
+                        placeholder={
+                          item.kind === "unit" ? "Search a unit…" : item.kind === "quiz" ? "Search a quiz…" : "Search an assignment…"
+                        }
+                        options={item.kind === "unit" ? units : item.kind === "quiz" ? quizzes : assignments}
+                        value={item.refId}
+                        onChange={(v) => patchItem(i, ii, { refId: v })}
+                      />
+                    </div>
+
+                    <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Remove item" onClick={() => removeItem(i, ii)}>
+                      <X className="h-4 w-4" />
+                    </Button>
                   </div>
-                  <Badge variant="secondary" className="mt-1 shrink-0 capitalize">{item.kind}</Badge>
+                );
+              })}
 
-                  <div className="flex-1">
-                    <SearchSelect
-                      placeholder={
-                        item.kind === "unit" ? "Search a unit…" : item.kind === "quiz" ? "Search a quiz…" : "Search an assignment…"
-                      }
-                      options={item.kind === "unit" ? units : item.kind === "quiz" ? quizzes : assignments}
-                      value={item.refId}
-                      onChange={(v) => patchItem(i, ii, { refId: v })}
-                    />
-                  </div>
-
-                  <Button variant="ghost" size="icon" aria-label="Remove item" onClick={() => removeItem(i, ii)}>
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" onClick={() => addItem(i, { kind: "unit", refId: "" })}>
-                <Plus className="mr-1 h-4 w-4" /> Add unit
-              </Button>
-              <Button variant="outline" size="sm" disabled={hasQuiz} onClick={() => addItem(i, { kind: "quiz", refId: "" })}>
-                <Plus className="mr-1 h-4 w-4" /> Add quiz
-              </Button>
-              <Button variant="outline" size="sm" disabled={hasAssignment} onClick={() => addItem(i, { kind: "assignment", refId: "" })}>
-                <Plus className="mr-1 h-4 w-4" /> Add assignment
-              </Button>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Button variant="outline" size="sm" onClick={() => addItem(i, { kind: "unit", refId: "" })}>
+                  <Video className="mr-1.5 h-3.5 w-3.5" /> Unit
+                </Button>
+                <Button variant="outline" size="sm" disabled={hasQuiz} onClick={() => addItem(i, { kind: "quiz", refId: "" })}>
+                  <ClipboardList className="mr-1.5 h-3.5 w-3.5" /> Quiz
+                </Button>
+                <Button variant="outline" size="sm" disabled={hasAssignment} onClick={() => addItem(i, { kind: "assignment", refId: "" })}>
+                  <FileText className="mr-1.5 h-3.5 w-3.5" /> Assignment
+                </Button>
+              </div>
             </div>
           </div>
         );
       })}
 
-      <Button variant="outline"
-        onClick={() => setCurriculum([...curriculum, { title: "", items: [] }])}>
+      <Button
+        variant="outline"
+        className="w-full border-dashed"
+        onClick={() => setCurriculum([...curriculum, { title: "", items: [] }])}
+      >
         <Plus className="mr-1 h-4 w-4" /> Add section
       </Button>
+    </div>
+  );
+}
+
+/* Read-only view of a saved course's curriculum, shown when editing. Editing
+   sections/units in place is done from the Section and Unit managers so student
+   progress is never destroyed. */
+function SavedCurriculum({ sections }: { sections: SavedSection[] }) {
+  if (sections.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-10 text-center">
+        <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-muted text-muted-foreground">
+          <Layers className="h-5 w-5" />
+        </span>
+        <p className="mt-3 text-sm font-medium">No curriculum yet</p>
+        <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
+          Add sections, units, quizzes and assignments from the Section and Unit managers.
+        </p>
+      </div>
+    );
+  }
+
+  function itemMeta(item: SavedSectionItem) {
+    const kind = item.kind.toLowerCase() as keyof typeof KIND_META;
+    const title =
+      item.unit?.title ?? item.quiz?.title ?? item.assignment?.title ?? "Untitled";
+    return { ...KIND_META[kind], title };
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="rounded-lg border border-border bg-muted/25 px-3 py-2.5 text-xs text-muted-foreground">
+        This is the course&rsquo;s current curriculum. To add or reorder sections, units, quizzes
+        and assignments, use the Section and Unit managers — that keeps existing student progress
+        intact.
+      </p>
+
+      {sections.map((section, i) => (
+        <div key={section.id} className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+          <div className="flex items-center gap-2 border-b border-border bg-muted/30 px-3 py-2.5">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+              {i + 1}
+            </span>
+            <h4 className="font-heading text-sm font-semibold">{section.title}</h4>
+            <span className="ml-auto text-xs text-muted-foreground">
+              {section.items.length} {section.items.length === 1 ? "item" : "items"}
+            </span>
+          </div>
+
+          <div className="divide-y divide-border">
+            {section.items.length === 0 ? (
+              <p className="px-3 py-4 text-center text-xs text-muted-foreground">Empty section.</p>
+            ) : (
+              section.items.map((item) => {
+                const meta = itemMeta(item);
+                return (
+                  <div key={item.id} className="flex items-center gap-3 px-3 py-2.5">
+                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${meta.tint}`}>
+                      <meta.Icon className="h-4 w-4" />
+                    </span>
+                    <span className="flex-1 truncate text-sm">{meta.title}</span>
+                    <span className="shrink-0 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      {meta.label}
+                    </span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

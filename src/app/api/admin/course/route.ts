@@ -3,6 +3,8 @@ import { Prisma } from "@/src/generated/prisma/client";
 import { ok, fail, handler } from "@/lib/api";
 import { requireRole } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { assertCourseManageable } from "@/lib/course-access";
+import { assertCurriculumManageable } from "@/lib/content-access";
 
 const COURSE_TYPES = ["ONLINE", "OFFLINE", "VIDEO"] as const;
 const STATUSES = ["DRAFT", "PUBLISHED", "ARCHIVED"] as const;
@@ -205,6 +207,7 @@ export const POST = handler(async (req: Request) => {
   const parsed = schema.safeParse(await req.json());
   if (!parsed.success) return fail(parsed.error.issues[0].message);
   const data = parsed.data;
+  if (data.action !== "create") await assertCourseManageable(data.id, user);
 
   if (data.action === "delete") {
     await prisma.course.update({ where: { id: data.id }, data: { deletedAt: new Date() } });
@@ -215,6 +218,7 @@ export const POST = handler(async (req: Request) => {
     const cat = await prisma.courseCategory.findUnique({ where: { id: data.categoryId }, select: { id: true } });
     if (!cat) return fail("Category not found.");
   }
+  await assertCurriculumManageable(data.curriculum, user);
 
   // Quizzes and assignments are one-to-one with a SectionItem (unique columns),
   // so a quiz/assignment already placed in another section can't be reused here.
@@ -255,7 +259,7 @@ export const POST = handler(async (req: Request) => {
   }
 
   const payload = scalarPayload(data);
-  const authorId = data.authorId || user.id;
+  const authorId = user.role === "INSTRUCTOR" ? user.id : data.authorId || user.id;
   const instructorRows = data.instructors.map((i, idx) => ({
     userId: i.userId,
     category: i.category,

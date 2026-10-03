@@ -2,6 +2,7 @@ import { z } from "zod";
 import { ok, fail, handler } from "@/lib/api";
 import { requireRole } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { assertContentManageable } from "@/lib/content-access";
 
 const questionType = z.enum(["MCQ_SINGLE", "MCQ_MULTI", "TRUE_FALSE", "SHORT_ANSWER", "DESCRIPTIVE"]);
 const option = z.object({ id: z.string(), text: z.string() });
@@ -21,10 +22,11 @@ const schema = z.discriminatedUnion("action", [
 ]);
 
 export const POST = handler(async (req: Request) => {
-  const user = await requireRole("ADMIN");
+  const user = await requireRole("ADMIN", "INSTRUCTOR");
   const parsed = schema.safeParse(await req.json());
   if (!parsed.success) return fail(parsed.error.issues[0].message);
   const data = parsed.data;
+  if (data.action !== "create") await assertContentManageable("question", data.id, user);
 
   if (data.action === "delete") {
     await prisma.question.delete({ where: { id: data.id } });

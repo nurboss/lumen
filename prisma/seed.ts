@@ -226,7 +226,6 @@ async function main() {
       const quiz = await prisma.quiz.create({
         data: {
           title: "Getting Started Quiz",
-          subtitle: "Check your understanding",
           authorId: instructor.id,
           marks: 3,
           passingMarks: 2,
@@ -289,44 +288,6 @@ async function main() {
         data: { sectionId: firstSection.id, kind: "QUIZ", quizId: quiz.id, order: unitCount },
       });
     }
-  }
-
-  // ── Banner ──────────────────────────────────────────────────────────────────
-  const bannerExists = await prisma.banner.findFirst();
-  if (!bannerExists) {
-    await prisma.banner.create({
-      data: {
-        heroTitle: "Learn with focus. Grow with Lumen.",
-        heroSubtitle: "Bangla-language online & offline courses taught by industry mentors.",
-        discountTitle: "New Year Offer",
-        discountPercent: 30,
-        countdownEndsAt: new Date(Date.now() + 14 * 24 * 3600 * 1000),
-        active: true,
-      },
-    });
-  }
-
-  // ── Blog categories + posts ─────────────────────────────────────────────────
-  const blogCat = await prisma.blogCategory.upsert({
-    where: { slug: "tutorials" },
-    update: {},
-    create: { name: "Tutorials", slug: "tutorials" },
-  });
-  const blogExists = await prisma.blog.findUnique({ where: { slug: "getting-started-with-nextjs" } });
-  if (!blogExists) {
-    await prisma.blog.create({
-      data: {
-        title: "Getting Started with Next.js",
-        slug: "getting-started-with-nextjs",
-        subtitle: "A beginner-friendly guide to the App Router.",
-        content: "<p>Next.js is a powerful React framework. In this post we cover the basics.</p>",
-        categoryId: blogCat.id,
-        authorId: instructor.id,
-        status: "PUBLISHED",
-        isPopular: true,
-        tags: ["nextjs", "react", "beginner"],
-      },
-    });
   }
 
   // ── Static pages ────────────────────────────────────────────────────────────

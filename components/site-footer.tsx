@@ -1,62 +1,77 @@
-import Link from "next/link";
-import { GraduationCap } from "lucide-react";
-import { Separator } from "@/components/ui/separator";
+﻿import Link from "next/link";
+import { ArrowUpRight, GraduationCap, Globe, Sprout } from "lucide-react";
 
 const columns = [
   {
-    title: "Learn",
+    title: "Keep learning",
     links: [
-      { label: "Courses", href: "/course" },
-      { label: "Upcoming Batches", href: "/upComingBatch" },
-      { label: "Mentors", href: "/mentorsList" },
-      { label: "Seminars", href: "/seminar" },
+      { label: "Explore courses", href: "/course" },
+      { label: "Live classes & batches", href: "/upComingBatch" },
+      { label: "Find a mentor", href: "/mentorsList" },
+      { label: "Community forum", href: "/forum" },
     ],
   },
   {
-    title: "Company",
+    title: "Get to know us",
     links: [
-      { label: "About Us", href: "/aboutUs" },
-      { label: "Blog", href: "/blog" },
-      { label: "Career", href: "/career" },
-      { label: "Agent Offices", href: "/agentOffice" },
+      { label: "About Lumen", href: "/aboutUs" },
+      { label: "Careers", href: "/career" },
+      { label: "Agent offices", href: "/agentOffice" },
+      { label: "Become an instructor", href: "/signUp" },
     ],
   },
   {
-    title: "Support",
+    title: "Here to help",
     links: [
-      { label: "Contact", href: "/contactUs" },
-      { label: "Forum", href: "/forum" },
-      { label: "Verify Certificate", href: "/certificate" },
-      { label: "Terms", href: "/termAndCondition" },
+      { label: "Contact us", href: "/contactUs" },
+      { label: "Verify a certificate", href: "/certificate" },
+      { label: "Terms & conditions", href: "/termAndCondition" },
     ],
   },
 ];
 
 export function SiteFooter() {
   return (
-    <footer className="border-t border-border bg-sidebar/40">
-      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
+    <footer className="border-t border-border bg-sidebar/50">
+      <div className="mx-auto max-w-7xl px-5 pt-14 sm:px-8 lg:px-10">
+        <div className="grid grid-cols-2 gap-x-8 gap-y-10 md:grid-cols-[1.5fr_1fr_1fr_1fr]">
           <div className="col-span-2 md:col-span-1">
-            <Link href="/" className="flex items-center gap-2 font-heading text-lg font-bold mb-3">
-              <GraduationCap className="h-6 w-6 text-primary" />
-              Lumen
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 font-heading text-2xl font-bold tracking-tight"
+            >
+              <span className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+                <GraduationCap className="size-6" />
+              </span>
+              <span>
+                Lumen<span className="text-primary">.</span>
+              </span>
             </Link>
-            <p className="text-sm text-muted-foreground">
-              Bangla-first learning platform — courses, live classes, and mentorship.
+            <p className="mt-4 max-w-xs text-sm leading-7 text-muted-foreground">
+              A little learning goes a long way. Build your next chapter with
+              courses, live classes, and mentors who care.
             </p>
+            <div className="mt-5 flex items-center gap-2 text-xs font-medium text-primary">
+              <Globe className="size-4" /> Bangla-first. Open to possibility.
+            </div>
           </div>
-          {columns.map((col) => (
-            <div key={col.title}>
-              <h4 className="font-heading font-semibold text-foreground mb-3 text-sm">{col.title}</h4>
-              <ul className="space-y-2">
-                {col.links.map((link) => (
-                  <li key={link.label}>
+          {columns.map((column) => (
+            <div key={column.title}>
+              <h2 className="mb-5 text-xs font-semibold uppercase tracking-wider">
+                {column.title}
+              </h2>
+              <ul className="space-y-3">
+                {column.links.map((link) => (
+                  <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                      className="group inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-primary"
                     >
                       {link.label}
+                      <ArrowUpRight
+                        aria-hidden="true"
+                        className="size-3 opacity-0 transition-opacity group-hover:opacity-100"
+                      />
                     </Link>
                   </li>
                 ))}
@@ -64,10 +79,12 @@ export function SiteFooter() {
             </div>
           ))}
         </div>
-        <Separator className="my-8" />
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-          <p>© {new Date().getFullYear()} Lumen. All rights reserved.</p>
-          <p className="eyebrow">Learn with focus</p>
+        <div className="mt-12 flex flex-col items-center justify-between gap-3 border-t border-border py-6 text-xs text-muted-foreground sm:flex-row">
+          <p>&copy; {new Date().getFullYear()} Lumen. All rights reserved.</p>
+          <p className="flex items-center gap-2">
+            <Sprout className="size-4 text-primary" /> A place to learn. A space
+            to grow.
+          </p>
         </div>
       </div>
     </footer>

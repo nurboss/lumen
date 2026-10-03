@@ -4,17 +4,19 @@ import { requireRole } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
 // A certificate template's design/text, stored on CertificateTemplate.layout (Json).
-// Body supports placeholders: {name} {course} {code} {region} {date}.
+// Body supports placeholders: {name} {course} {result} {code} {region} {date}.
 const layout = z.object({
   title: z.string().trim().max(120).default("Certificate of Completion"),
   body: z
     .string()
     .trim()
     .max(1000)
-    .default("This is to certify that {name} has successfully completed {course}."),
+    .default(
+      "This certifies that {name} has successfully completed {course}, demonstrating dedication and mastery of the material."
+    ),
   signatureName: z.string().trim().max(120).optional().default(""),
   signatureTitle: z.string().trim().max(120).optional().default(""),
-  accentColor: z.string().trim().max(20).optional().default("#4f46e5"),
+  accentColor: z.string().trim().max(20).optional().default("#1e6a50"),
 });
 
 const fields = z.object({

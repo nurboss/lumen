@@ -32,7 +32,6 @@ enum Role {
   INSTRUCTOR
   AGENT
   STUDENT
-  PARENT
 }
 
 enum UserStatus {
@@ -158,11 +157,6 @@ enum DiscountType {
   FLAT
 }
 
-enum BlogStatus {
-  DRAFT
-  PUBLISHED
-}
-
 enum BookingStatus {
   PENDING
   CONFIRMED
@@ -205,8 +199,6 @@ model User {
   accounts          Account[]
   sessions          Session[]
   instructorProfile InstructorProfile?
-  parentLinks       ParentStudent[]    @relation("ParentSide")
-  studentLinks      ParentStudent[]    @relation("StudentSide")
 
   authoredCourses Course[]         @relation("CourseAuthor")
   courseAssignments CourseInstructor[]
@@ -220,13 +212,11 @@ model User {
   wallet       Wallet?
   transactions Transaction[]
 
-  blogReviews        BlogReview[]
   mentorReviewsGiven MentorReview[]        @relation("ReviewAuthor")
   bookings           Booking[]             @relation("BookingStudent")
   forumPosts         PublicForumPost[]
   forumComments      ForumComment[]
   forumLikes         ForumLike[]
-  seminarSignups     SeminarParticipant[]
   videoProgress      UnitProgress[]
   notifications      Notification[]
   chatMessages       ChatMessage[]         @relation("ChatSender")
@@ -296,20 +286,6 @@ model InstructorProfile {
   slots   Slot[]
 
   @@index([approved])
-}
-
-// Parent <-> Student link (fixes the broken parent role)
-model ParentStudent {
-  id        String @id @default(cuid())
-  parentId  String
-  studentId String
-  parent    User   @relation("ParentSide", fields: [parentId], references: [id], onDelete: Cascade)
-  student   User   @relation("StudentSide", fields: [studentId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-
-  @@unique([parentId, studentId])
-  @@index([studentId])
 }
 
 // ============================================================================
@@ -626,15 +602,12 @@ model Question {
 model Quiz {
   id                    String  @id @default(cuid())
   title                 String
-  subtitle              String?
   description           String? // HTML
-  code                  String?
   authorId              String?
   connectedCourseId     String?
   durationMinutes       Int?
   marks                 Int     @default(0)
   passingMarks          Int?
-  numberOfQuestions     Int?
   negativeMarkPerQuiz   Float?
   questionsPerPage      Int?
   randomize             Boolean @default(false)
@@ -707,7 +680,6 @@ model RandomQuizResult {
 model Assignment {
   id               String                   @id @default(cuid())
   title            String
-  subtitle         String?
   description      String? // HTML
   authorId         String?
   timeLimit        Int?
@@ -919,53 +891,6 @@ model ForumLike {
 }
 
 // ============================================================================
-// BLOG
-// ============================================================================
-
-model BlogCategory {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique
-  blogs     Blog[]
-  createdAt DateTime @default(now())
-}
-
-model Blog {
-  id           String        @id @default(cuid())
-  title        String
-  slug         String        @unique
-  subtitle     String?
-  content      String // HTML
-  thumbnailUrl String?
-  categoryId   String?
-  category     BlogCategory? @relation(fields: [categoryId], references: [id])
-  authorId     String?
-  status       BlogStatus    @default(DRAFT)
-  isPopular    Boolean       @default(false)
-  tags         String[]
-  reviews      BlogReview[]
-
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-
-  @@index([status])
-}
-
-model BlogReview {
-  id        String   @id @default(cuid())
-  blogId    String
-  blog      Blog     @relation(fields: [blogId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  rating    Int
-  comment   String?
-  createdAt DateTime @default(now())
-
-  @@unique([blogId, userId])
-}
-
-// ============================================================================
 // COURSE / MENTOR REVIEWS, SLOTS, BOOKINGS
 // ============================================================================
 
@@ -1022,53 +947,8 @@ model Booking {
 }
 
 // ============================================================================
-// SEMINARS
-// ============================================================================
-
-model Seminar {
-  id           String               @id @default(cuid())
-  title        String
-  description  String?
-  date         DateTime?
-  time         String?
-  location     String?
-  joinUrl      String?
-  bannerUrl    String?
-  seats        Int?
-  participants SeminarParticipant[]
-  createdAt    DateTime             @default(now())
-}
-
-model SeminarParticipant {
-  id        String   @id @default(cuid())
-  seminarId String
-  seminar   Seminar  @relation(fields: [seminarId], references: [id], onDelete: Cascade)
-  userId    String?
-  user      User?    @relation(fields: [userId], references: [id])
-  name      String
-  phone     String?
-  email     String?
-  extra     Json?
-  createdAt DateTime @default(now())
-
-  @@index([seminarId])
-}
-
-// ============================================================================
 // CMS-BACKED MARKETING CONTENT (replaces hardcoded static pages)
 // ============================================================================
-
-model Banner {
-  id              String    @id @default(cuid())
-  heroTitle       String?
-  heroSubtitle    String?
-  heroImageUrl    String?
-  discountTitle   String?
-  discountPercent Int?
-  countdownEndsAt DateTime?
-  active          Boolean   @default(true)
-  createdAt       DateTime  @default(now())
-}
 
 model AgentOffice {
   id             String   @id @default(cuid())
@@ -1079,16 +959,6 @@ model AgentOffice {
   commissionRate Float    @default(0)
   courseIds      String[]
   createdAt      DateTime @default(now())
-}
-
-model Institute {
-  id          String   @id @default(cuid())
-  name        String
-  slug        String   @unique
-  description String?
-  logoUrl     String?
-  address     String?
-  createdAt   DateTime @default(now())
 }
 
 model JobPost {

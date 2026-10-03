@@ -20,14 +20,14 @@ export function DashboardSidebar({ role, allowedKeys }: DashboardSidebarProps) {
     group.items.filter((item) => !allowedKeys || allowedKeys.includes(item.key));
 
   return (
-    <aside className="hidden lg:flex w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
+    <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-sidebar-border bg-sidebar lg:flex">
       <div className="flex h-16 items-center gap-2 border-b border-sidebar-border px-6">
         <Link href="/" className="flex items-center gap-2 font-heading text-lg font-bold text-sidebar-foreground">
           <GraduationCap className="h-6 w-6 text-sidebar-primary" />
           Lumen
         </Link>
       </div>
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
+      <nav className="scrollbar-none min-h-0 flex-1 overflow-y-auto px-3 py-4">
         {groups.map((group, gi) => {
           const items = filterItems(group);
           if (items.length === 0) return null;

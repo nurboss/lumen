@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { BookOpen } from "lucide-react";
+import { BookOpen, Award } from "lucide-react";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { DashboardHeading } from "@/components/dashboard/stat-card";
 
 export default async function MyCoursesPage() {
@@ -40,27 +41,48 @@ export default async function MyCoursesPage() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {enrollments.map((e) => (
-            <Link key={e.id} href={`/student/my-course/${e.course.id}`} className="group">
-              <Card className="h-full transition-shadow hover:shadow-md">
-                <CardContent className="p-5">
+          {enrollments.map((e) => {
+            const complete = e.progressPercent >= 100;
+            return (
+              <Card key={e.id} className="group flex h-full flex-col transition-shadow hover:shadow-md">
+                <CardContent className="flex flex-1 flex-col p-5">
                   <div className="mb-2 flex items-center justify-between">
                     {e.course.category && (
                       <span className="text-xs text-muted-foreground">{e.course.category.name}</span>
                     )}
-                    {e.status === "COMPLETED" && <Badge variant="secondary">Completed</Badge>}
+                    {(e.status === "COMPLETED" || complete) && <Badge variant="secondary">Completed</Badge>}
                   </div>
-                  <h3 className="mb-3 line-clamp-2 font-heading font-semibold group-hover:text-primary">
-                    {e.course.title}
-                  </h3>
+                  <Link href={`/student/my-course/${e.course.id}`}>
+                    <h3 className="mb-3 line-clamp-2 font-heading font-semibold group-hover:text-primary">
+                      {e.course.title}
+                    </h3>
+                  </Link>
                   <Progress value={e.progressPercent} className="h-2" />
                   <p className="mt-2 text-xs text-muted-foreground">
                     {Math.round(e.progressPercent)}% complete
                   </p>
+
+                  <div className="mt-4 flex flex-1 items-end">
+                    {complete ? (
+                      <Link
+                        href={`/student/my-course/${e.course.id}/certificate`}
+                        className={`${buttonVariants({ size: "sm" })} w-full`}
+                      >
+                        <Award className="mr-1.5 h-4 w-4" /> Get certificate
+                      </Link>
+                    ) : (
+                      <Link
+                        href={`/student/my-course/${e.course.id}`}
+                        className={`${buttonVariants({ variant: "outline", size: "sm" })} w-full`}
+                      >
+                        Continue learning
+                      </Link>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
-            </Link>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

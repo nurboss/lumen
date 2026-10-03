@@ -17,6 +17,25 @@ export default async function ManageCoursePage() {
             orderBy: { order: "asc" },
             select: { userId: true, category: true },
           },
+          // Ordered curriculum so the edit dialog can show the existing
+          // sections and their units / quizzes / assignments.
+          sections: {
+            orderBy: { order: "asc" },
+            select: {
+              id: true,
+              title: true,
+              items: {
+                orderBy: { order: "asc" },
+                select: {
+                  id: true,
+                  kind: true,
+                  unit: { select: { title: true, type: true } },
+                  quiz: { select: { title: true } },
+                  assignment: { select: { title: true } },
+                },
+              },
+            },
+          },
           _count: { select: { enrollments: true } },
         },
       }),

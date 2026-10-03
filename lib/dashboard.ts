@@ -22,5 +22,4 @@ export const roleLabels: Record<Role, string> = {
   INSTRUCTOR: "Instructor",
   AGENT: "Agent",
   STUDENT: "Student",
-  PARENT: "Parent",
 };

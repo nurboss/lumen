@@ -1,7 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { Menu, GraduationCap, Search, LayoutDashboard, LogOut, User as UserIcon } from "lucide-react";
+import {
+  Menu,
+  X,
+  GraduationCap,
+  Search,
+  ArrowUpRight,
+  LayoutDashboard,
+  LogOut,
+  User as UserIcon,
+} from "lucide-react";
+import { usePathname } from "next/navigation";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -17,10 +27,10 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 const navLinks = [
+  { href: "/", label: "Home" },
   { href: "/course", label: "Courses" },
+  { href: "/upComingBatch", label: "Live classes" },
   { href: "/mentorsList", label: "Mentors" },
-  { href: "/blog", label: "Blog" },
-  { href: "/seminar", label: "Seminars" },
   { href: "/forum", label: "Forum" },
 ];
 
@@ -35,8 +45,13 @@ interface NavbarProps {
   profileHref?: string;
 }
 
-export function Navbar({ user = null, dashboardHref = "/", profileHref = "/" }: NavbarProps) {
+export function Navbar({
+  user = null,
+  dashboardHref = "/",
+  profileHref = "/",
+}: NavbarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const pathname = usePathname();
 
   const initials = user
     ? user.fullName
@@ -54,20 +69,36 @@ export function Navbar({ user = null, dashboardHref = "/", profileHref = "/" }: 
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/80 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between gap-3 px-5 sm:px-8 lg:px-10">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 font-heading text-xl font-bold">
-          <GraduationCap className="h-7 w-7 text-primary" />
-          <span>Lumen</span>
+        <Link
+          href="/"
+          className="flex items-center gap-2 font-heading text-xl font-bold"
+        >
+          <span className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+            <GraduationCap className="size-6" />
+          </span>
+          <span className="text-2xl tracking-tight">
+            Lumen<span className="text-primary">.</span>
+          </span>
         </Link>
 
         {/* Desktop nav */}
-        <nav className="hidden md:flex items-center gap-1">
+        <nav
+          aria-label="Main navigation"
+          className="hidden lg:flex items-center gap-1"
+        >
           {navLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className="px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-secondary"
+              aria-current={pathname === link.href ? "page" : undefined}
+              className={cn(
+                "px-3 py-2 text-sm font-medium hover:text-foreground transition-colors rounded-md hover:bg-secondary",
+                pathname === link.href
+                  ? "text-primary bg-secondary/60"
+                  : "text-muted-foreground",
+              )}
             >
               {link.label}
             </Link>
@@ -76,19 +107,33 @@ export function Navbar({ user = null, dashboardHref = "/", profileHref = "/" }: 
 
         {/* Actions */}
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" aria-label="Search" className="hidden sm:inline-flex">
+          <Link
+            href="/course"
+            aria-label="Search courses"
+            className={cn(
+              buttonVariants({ variant: "ghost", size: "icon" }),
+              "hidden sm:inline-flex",
+            )}
+          >
             <Search className="h-5 w-5" />
-          </Button>
+          </Link>
           <ThemeToggle />
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
-                  <Button variant="ghost" size="icon" className="rounded-full" aria-label="Account" />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="rounded-full"
+                    aria-label="Account"
+                  />
                 }
               >
                 <Avatar className="h-8 w-8">
-                  {user.avatarUrl ? <AvatarImage src={user.avatarUrl} alt={user.fullName} /> : null}
+                  {user.avatarUrl ? (
+                    <AvatarImage src={user.avatarUrl} alt={user.fullName} />
+                  ) : null}
                   <AvatarFallback className="bg-primary text-primary-foreground text-xs">
                     {initials}
                   </AvatarFallback>
@@ -114,34 +159,57 @@ export function Navbar({ user = null, dashboardHref = "/", profileHref = "/" }: 
             </DropdownMenu>
           ) : (
             <>
-              <Link href="/login" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "hidden md:inline-flex")}>
+              <Link
+                href="/login"
+                className={cn(
+                  buttonVariants({ variant: "ghost", size: "sm" }),
+                  "hidden md:inline-flex",
+                )}
+              >
                 Login
               </Link>
-              <Link href="/signUp" className={cn(buttonVariants({ size: "sm" }), "hidden md:inline-flex")}>
-                Get Started
+              <Link
+                href="/signUp"
+                className={cn(
+                  buttonVariants({ size: "sm" }),
+                  "hidden md:inline-flex",
+                )}
+              >
+                Get Started <ArrowUpRight className="size-3.5" />
               </Link>
             </>
           )}
           <Button
             variant="ghost"
             size="icon"
-            className="md:hidden"
+            className="lg:hidden"
             onClick={() => setMobileOpen(!mobileOpen)}
-            aria-label="Menu"
+            aria-label={mobileOpen ? "Close menu" : "Open menu"}
+            aria-expanded={mobileOpen}
+            aria-controls="mobile-navigation"
           >
-            <Menu className="h-5 w-5" />
+            {mobileOpen ? (
+              <X className="h-5 w-5" />
+            ) : (
+              <Menu className="h-5 w-5" />
+            )}
           </Button>
         </div>
       </div>
 
       {/* Mobile menu */}
       <div
+        id="mobile-navigation"
+        inert={!mobileOpen}
         className={cn(
-          "md:hidden overflow-hidden transition-all duration-300",
-          mobileOpen ? "max-h-96 border-t border-border/60" : "max-h-0"
+          "lg:hidden overflow-hidden transition-all duration-300",
+          mobileOpen ? "max-h-96 border-t border-border/60" : "max-h-0",
         )}
       >
-        <nav className="flex flex-col gap-1 px-4 py-3">
+        <nav
+          aria-label="Mobile navigation"
+          className="flex flex-col gap-1 px-4 py-3"
+        >
           {navLinks.map((link) => (
             <Link
               key={link.href}
@@ -156,17 +224,27 @@ export function Navbar({ user = null, dashboardHref = "/", profileHref = "/" }: 
             <div className="mt-2 flex flex-col gap-1 border-t border-border/60 pt-3">
               <div className="flex items-center gap-2 px-3 py-2">
                 <Avatar className="h-8 w-8">
-                  {user.avatarUrl ? <AvatarImage src={user.avatarUrl} alt={user.fullName} /> : null}
+                  {user.avatarUrl ? (
+                    <AvatarImage src={user.avatarUrl} alt={user.fullName} />
+                  ) : null}
                   <AvatarFallback className="bg-primary text-primary-foreground text-xs">
                     {initials}
                   </AvatarFallback>
                 </Avatar>
                 <span className="text-sm font-medium">{user.fullName}</span>
               </div>
-              <Link href={dashboardHref} className="px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-secondary" onClick={() => setMobileOpen(false)}>
+              <Link
+                href={dashboardHref}
+                className="px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-secondary"
+                onClick={() => setMobileOpen(false)}
+              >
                 Dashboard
               </Link>
-              <Link href={profileHref} className="px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-secondary" onClick={() => setMobileOpen(false)}>
+              <Link
+                href={profileHref}
+                className="px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-secondary"
+                onClick={() => setMobileOpen(false)}
+              >
                 Profile
               </Link>
               <button
@@ -182,10 +260,21 @@ export function Navbar({ user = null, dashboardHref = "/", profileHref = "/" }: 
             </div>
           ) : (
             <div className="mt-2 flex gap-2">
-              <Link href="/login" className={cn(buttonVariants({ variant: "outline", size: "sm" }), "flex-1")} onClick={() => setMobileOpen(false)}>
+              <Link
+                href="/login"
+                className={cn(
+                  buttonVariants({ variant: "outline", size: "sm" }),
+                  "flex-1",
+                )}
+                onClick={() => setMobileOpen(false)}
+              >
                 Login
               </Link>
-              <Link href="/signUp" className={cn(buttonVariants({ size: "sm" }), "flex-1")} onClick={() => setMobileOpen(false)}>
+              <Link
+                href="/signUp"
+                className={cn(buttonVariants({ size: "sm" }), "flex-1")}
+                onClick={() => setMobileOpen(false)}
+              >
                 Get Started
               </Link>
             </div>

@@ -164,6 +164,17 @@
    ============================================================================ */
 
 @layer utilities {
+  /* Scrollable region with no visible scrollbar chrome — lets a fixed panel
+     (e.g. the dashboard sidebar) hold overflowing content while reading as a
+     solid, static rail. Scroll still works via wheel/trackpad/keys. */
+  .scrollbar-none {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* legacy Edge */
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none; /* WebKit */
+  }
+
   /* Gold highlighter swipe behind text. Reserve for ONE key phrase per view. */
   .marker {
     background-image: linear-gradient(
@@ -234,6 +245,36 @@
   }
 }
 
+/* Keep the seek track transparent so played and buffered progress show beneath it. */
+.lesson-seek::-webkit-slider-runnable-track {
+  height: 4px;
+  background: transparent;
+}
+.lesson-seek::-moz-range-track {
+  height: 4px;
+  background: transparent;
+}
+.lesson-seek::-webkit-slider-thumb {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+.lesson-seek::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--primary);
+}
+.lesson-seek:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -244,3 +285,82 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Public homepage: warm paper, botanical ink, and an illustrated learning space. */
+@layer components {
+  .home-container { @apply mx-auto w-full max-w-7xl px-5 sm:px-8 lg:px-10; }
+  .home-section { @apply py-14 lg:py-20; }
+  .home-title { @apply font-heading text-3xl font-semibold leading-tight tracking-tight lg:text-4xl; }
+  .home-kicker { @apply inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.15em] sm:text-[11px]; }
+  .home-button { @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-primary bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90; }
+  .home-button-outline { @apply border-border bg-background text-foreground hover:border-primary/40 hover:bg-secondary; }
+  .home-chip { @apply inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-xs font-medium transition-colors hover:border-primary/50; }
+  .home-search { @apply flex items-center gap-3 rounded-xl border border-border bg-card p-2 pl-4 shadow-xs transition-shadow focus-within:ring-2 focus-within:ring-primary/30; }
+  .home-category { @apply flex min-w-0 flex-col rounded-xl border border-border bg-card p-5 text-sm transition-all hover:-translate-y-1 hover:border-primary/30 hover:shadow-sm; }
+  .home-category > span:last-child { @apply flex items-center justify-between gap-1; }
+  .home-benefit-card { @apply flex gap-4 rounded-2xl border border-border/70 bg-card p-6; }
+  .home-batch { @apply flex flex-col rounded-2xl border border-border bg-card p-6 transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-md; }
+  .home-mentor { @apply overflow-hidden rounded-2xl border border-border bg-card transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-md; }
+  .home-mentor-portrait { @apply relative flex aspect-[1.4] items-center justify-center overflow-hidden bg-secondary; }
+  .home-faq { @apply border-b border-border; }
+  .home-final-cta { @apply relative flex flex-col justify-between gap-8 overflow-hidden rounded-3xl bg-[#244c3d] px-7 py-10 text-white sm:flex-row sm:items-center sm:p-12 lg:px-16; }
+}
+
+.lumen-home { overflow: clip; }
+.lumen-home a:focus-visible, .lumen-home button:focus-visible, .lumen-home summary:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 5px;
+}
+.home-hero {
+  background: radial-gradient(ellipse at 82% 35%, color-mix(in oklch, var(--secondary) 80%, transparent), transparent 55%), var(--background);
+  border-bottom: 1px solid var(--border);
+}
+.home-highlight {
+  color: var(--primary);
+  background: linear-gradient(transparent 77%, color-mix(in oklch, var(--accent) 70%, transparent) 77%, color-mix(in oklch, var(--accent) 70%, transparent) 93%, transparent 93%);
+}
+.home-learning-scene { position: relative; min-height: 460px; display: flex; align-items: center; justify-content: center; padding: 15px 25px 30px; animation-delay: 100ms; }
+.home-scene-orbit { position: absolute; width: 430px; height: 430px; max-width: 100%; border: 1px dashed color-mix(in oklch, var(--primary) 25%, transparent); border-radius: 50%; transform: rotate(-15deg); }
+.home-scene-orbit::before { content: ""; position: absolute; inset: 25px; border-radius: 50%; background: color-mix(in oklch, var(--secondary) 65%, transparent); }
+.home-learning-window { position: relative; width: 355px; max-width: 100%; border: 1px solid var(--border); border-radius: 16px; background: var(--card); box-shadow: 0 20px 65px -25px color-mix(in oklch, var(--primary) 35%, transparent); transform: rotate(-3deg); }
+.home-lesson-art { position: relative; height: 190px; overflow: hidden; border-radius: 10px; background: #244c3d; }
+.home-art-grid { position: absolute; inset: 0; background-image: linear-gradient(#ffffff0a 1px, transparent 1px), linear-gradient(90deg, #ffffff0a 1px, transparent 1px); background-size: 26px 26px; }
+.home-art-circle { position: absolute; width: 90px; height: 90px; border-radius: 50%; background: #f1d878; right: 26px; top: 33px; }
+.home-art-arch { position: absolute; width: 115px; height: 155px; border-radius: 80px 80px 0 0; border: 1px solid #9bbe9b; background: #65866b; right: -17px; top: 60px; transform: rotate(-22deg); }
+.home-art-arch::after { content: ""; position: absolute; inset: 14px; border: 1px solid #ffffff40; border-radius: inherit; }
+.home-scene-spark { position: absolute; right: 8px; top: 25px; color: var(--primary); transform: rotate(10deg); }
+.home-scene-note { position: absolute; right: 0; bottom: 58px; display: flex; align-items: center; gap: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); padding: 14px 18px; box-shadow: 0 8px 30px -10px color-mix(in oklch, var(--primary) 25%, transparent); transform: rotate(4deg); }
+.home-scene-label { position: absolute; bottom: 0; left: 32px; display: flex; align-items: center; gap: 8px; font-family: var(--font-mono), monospace; font-size: 10px; color: var(--muted-foreground); }
+.home-benefits { background: color-mix(in oklch, var(--secondary) 48%, var(--background)); border-block: 1px solid var(--border); }
+.home-course-grid [data-slot="card"] { border-radius: 16px; box-shadow: none; transition: transform 200ms, box-shadow 200ms, border-color 200ms; }
+.home-course-grid > a:hover [data-slot="card"] { transform: translateY(-4px); border-color: color-mix(in oklch, var(--primary) 40%, var(--border)); box-shadow: 0 12px 24px -16px color-mix(in oklch, var(--primary) 40%, transparent); }
+.home-mentor-tone-1 { background: color-mix(in oklch, var(--accent) 23%, var(--card)); }
+.home-mentor-tone-2 { background: color-mix(in oklch, var(--primary) 15%, var(--card)); }
+.home-mentor-tone-3 { background: color-mix(in oklch, var(--accent) 15%, var(--secondary)); }
+.home-faq summary::-webkit-details-marker { display: none; }
+.home-final-cta::after { content: ""; position: absolute; width: 500px; height: 500px; right: -100px; top: -130px; border: 1px solid #ffffff16; border-radius: 50%; box-shadow: 0 0 0 50px #ffffff04, 0 0 0 100px #ffffff03; }
+.home-cta-art { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #e9d78c; padding: 20px; }
+@media (max-width: 639px) {
+  .home-learning-scene { min-height: 430px; padding-inline: 12px; max-width: 410px; width: 100%; margin-inline: auto; }
+  .home-learning-window { width: 305px; }
+  .home-scene-note { right: 0; bottom: 45px; padding: 12px; }
+  .home-scene-spark { right: 0; top: 0; }
+  .home-cta-art { display: none; }
+}
+.home-course-art {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #244c3d;
+  color: #f3deb0;
+}
+.home-course-art-gold { background: #f1dfab; color: #526247; }
+.home-course-art-sage { background: #cfdfd3; color: #315847; }
+.home-cover-orbit { position: absolute; right: -35px; top: -55px; width: 220px; height: 220px; border: 1px solid currentColor; opacity: 0.15; border-radius: 50%; box-shadow: 0 0 0 30px #ffffff0d, 0 0 0 60px #ffffff08; }
+.home-cover-book { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; width: 95px; height: 112px; border-radius: 3px 10px 10px 3px; border: 1px solid currentColor; border-left: 5px solid currentColor; background: #ffffff0c; box-shadow: 8px 8px 0 #0000000a; transform: rotate(-12deg); transition: transform 300ms; }
+.home-cover-rule { display: block; width: 43px; height: 2px; border-radius: 2px; background: currentColor; opacity: 0.5; }
+.home-cover-rule.short { width: 27px; }
+.home-course-grid > a:hover .home-cover-book { transform: rotate(-6deg) translateY(-3px); }

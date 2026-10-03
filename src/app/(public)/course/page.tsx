@@ -7,6 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
+import { getSession } from "@/lib/auth";
+import { getAvailableBatches } from "@/lib/batches";
+import { BatchCard } from "@/components/batch-card";
 
 export const revalidate = 60;
 
@@ -34,8 +37,9 @@ export default async function CatalogPage({
     ...(q ? { title: { contains: q, mode: "insensitive" } } : {}),
     ...(categorySlug ? { category: { slug: categorySlug } } : {}),
   };
+  const user = await getSession();
 
-  const [categories, total, courses] = await Promise.all([
+  const [categories, total, courses, batches] = await Promise.all([
     prisma.courseCategory.findMany({ orderBy: { name: "asc" } }),
     prisma.course.count({ where }),
     prisma.course.findMany({
@@ -49,6 +53,7 @@ export default async function CatalogPage({
         _count: { select: { reviews: true } },
       },
     }),
+    getAvailableBatches(user?.id, { course: where }),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -102,6 +107,16 @@ export default async function CatalogPage({
           </Link>
         ))}
       </div>
+
+      <section className="mt-8" aria-labelledby="batch-courses-heading">
+        <h2 id="batch-courses-heading" className="font-heading text-xl font-bold">Batch courses</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Choose a scheduled batch and enroll with your class.</p>
+        {batches.length > 0 ? (
+          <div className="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {batches.map((batch) => <BatchCard key={batch.id} batch={batch} isAuthed={Boolean(user)} />)}
+          </div>
+        ) : <p className="mt-4 text-sm text-muted-foreground">No available batches match your search.</p>}
+      </section>
 
       {/* Results */}
       <p className="mt-6 text-sm text-muted-foreground">{total} course{total === 1 ? "" : "s"} found</p>

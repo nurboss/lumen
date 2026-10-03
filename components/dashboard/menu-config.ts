@@ -8,20 +8,17 @@ import {
   FileQuestion,
   ClipboardList,
   Award,
-  Presentation,
   Wallet,
   CreditCard,
   CalendarClock,
   MessageSquare,
-  Newspaper,
   Shield,
   Video,
   UserCog,
   Tag,
-  Building2,
 } from "lucide-react";
 
-export type Role = "ADMIN" | "INSTRUCTOR" | "AGENT" | "STUDENT" | "PARENT";
+export type Role = "ADMIN" | "INSTRUCTOR" | "AGENT" | "STUDENT";
 
 export interface MenuItem {
   /** Stable key used for RBAC permission lookup (matches doc menu keys). */
@@ -53,6 +50,7 @@ export const menuByRole: Record<Role, MenuGroup[]> = {
         { key: "manage-quiz", label: "Quizzes", href: "/admin/manage-quiz", icon: FileQuestion },
         { key: "manage-question", label: "Questions", href: "/admin/manage-question", icon: FileQuestion },
         { key: "manage-assignment", label: "Assignments", href: "/admin/manage-assignment", icon: ClipboardList },
+        { key: "manage-certificate", label: "Certificates", href: "/admin/manage-certificate", icon: Award },
       ],
     },
     {
@@ -60,7 +58,6 @@ export const menuByRole: Record<Role, MenuGroup[]> = {
       items: [
         { key: "manage-instructor", label: "Instructors", href: "/admin/manage-instructor", icon: GraduationCap },
         { key: "manage-student", label: "Students", href: "/admin/manage-student", icon: Users },
-        { key: "manage-parent", label: "Parents", href: "/admin/manage-parent", icon: Users },
         { key: "manage-user", label: "All Users", href: "/admin/manage-user", icon: UserCog },
       ],
     },
@@ -75,14 +72,8 @@ export const menuByRole: Record<Role, MenuGroup[]> = {
     {
       heading: "Content",
       items: [
-        { key: "manage-banner", label: "Banner", href: "/admin/manage-banner", icon: Newspaper },
-        { key: "manage-seminar", label: "Seminars", href: "/admin/manage-seminar", icon: Presentation },
-        { key: "manage-certificate", label: "Certificates", href: "/admin/manage-certificate", icon: Award },
-        { key: "manage-blog", label: "Blog", href: "/admin/manage-blog", icon: Newspaper },
-        { key: "manage-blog-category", label: "Blog Categories", href: "/admin/manage-blog-category", icon: Layers },
         { key: "public-qna", label: "Public Q&A", href: "/admin/public-qna", icon: MessageSquare },
         { key: "promocode", label: "Promo Codes", href: "/admin/promocode", icon: Tag },
-        { key: "manage-institute", label: "Institutes", href: "/admin/manage-institute", icon: Building2 },
       ],
     },
     {
@@ -155,9 +146,6 @@ export const menuByRole: Record<Role, MenuGroup[]> = {
       ],
     },
   ],
-  PARENT: [
-    { items: [{ key: "dashboard", label: "Dashboard", href: "/parent", icon: LayoutDashboard }] },
-  ],
 };
 
 export const rolePrefix: Record<Role, string> = {
@@ -165,5 +153,4 @@ export const rolePrefix: Record<Role, string> = {
   INSTRUCTOR: "/instructor",
   AGENT: "/agent",
   STUDENT: "/student",
-  PARENT: "/parent",
 };

@@ -28,7 +28,6 @@ export default async function TakeQuizPage({
   const runnerQuiz: RunnerQuiz = {
     id: quiz.id,
     title: quiz.title,
-    subtitle: quiz.subtitle,
     durationMinutes: quiz.durationMinutes,
     questions: quiz.questions.map((qq) => ({
       id: qq.question.id,

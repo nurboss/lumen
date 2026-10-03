@@ -11,16 +11,21 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { formatBdt, effectivePrice } from "@/lib/format";
-import { EnrollButton } from "./enroll-button";
+import { EnrollButton } from "@/components/enroll-button";
+import { getAvailableBatches } from "@/lib/batches";
+import { BatchCard } from "@/components/batch-card";
 
 export const revalidate = 60;
 
 export default async function CourseDetailsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ batch?: string }>;
 }) {
   const { id } = await params;
+  const { batch: selectedBatchId } = await searchParams;
 
   const course = await prisma.course.findFirst({
     where: { id, deletedAt: null },
@@ -54,11 +59,13 @@ export default async function CourseDetailsPage({
   const enrolled = user
     ? Boolean(
         await prisma.enrollment.findFirst({
-          where: { userId: user.id, courseId: course.id },
+          where: { userId: user.id, courseId: course.id, status: { in: ["ACTIVE", "COMPLETED"] } },
           select: { id: true },
         })
       )
     : false;
+  const batches = await getAvailableBatches(user?.id, { courseId: course.id });
+  const selectedBatch = batches.find((batch) => batch.id === selectedBatchId);
 
   const price = effectivePrice(course);
   const whatWillLearn = (course.whatWillLearn as string[] | null) ?? [];
@@ -116,6 +123,16 @@ export default async function CourseDetailsPage({
                 ))}
               </ul>
             </div>
+          )}
+
+          {batches.length > 0 && (
+            <section id="batches" className="mt-10 scroll-mt-24">
+              <h2 className="font-heading text-xl font-bold">Choose your batch</h2>
+              <p className="mt-1 text-sm text-muted-foreground">Enroll in the schedule that works for you.</p>
+              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {batches.map((batch) => <BatchCard key={batch.id} batch={batch} isAuthed={Boolean(user)} />)}
+              </div>
+            </section>
           )}
 
           {/* Curriculum */}
@@ -234,7 +251,16 @@ export default async function CourseDetailsPage({
                   </>
                 )}
               </div>
-              <EnrollButton courseId={course.id} enrolled={enrolled} isAuthed={Boolean(user)} />
+              {selectedBatch ? (
+                <div>
+                  <p className="mb-3 text-sm font-medium">Selected batch: {selectedBatch.name || "Course batch"}</p>
+                  <EnrollButton key={selectedBatch.id} courseId={course.id} batchId={selectedBatch.id} enrolled={selectedBatch.enrolled} isAuthed={Boolean(user)} unavailable={selectedBatch.seats !== null && selectedBatch._count.enrollments >= selectedBatch.seats ? "Batch full" : undefined} />
+                </div>
+              ) : selectedBatchId ? (
+                <p role="alert" className="text-sm text-destructive">This batch is no longer available. Choose another batch below.</p>
+              ) : course.forceBatchEnrollment && !enrolled ? (
+                batches.length > 0 ? <a href="#batches" className="font-medium text-primary hover:underline">Choose a batch to enroll</a> : <p className="text-sm text-muted-foreground">No batches are available for enrollment yet.</p>
+              ) : <EnrollButton courseId={course.id} enrolled={enrolled} isAuthed={Boolean(user)} />}
               <ul className="mt-6 space-y-2 text-sm text-muted-foreground">
                 <li>{totalUnits} lessons</li>
                 <li>{course._count.enrollments} students enrolled</li>

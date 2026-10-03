@@ -24,14 +24,14 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { postJson } from "@/lib/client-api";
+import {
+  CertificatePreview,
+  DEFAULT_LAYOUT,
+  SAMPLE_VARS,
+  type CertLayout,
+} from "@/components/certificate-preview";
 
-export interface CertLayout {
-  title?: string;
-  body?: string;
-  signatureName?: string;
-  signatureTitle?: string;
-  accentColor?: string;
-}
+export type { CertLayout };
 
 export interface CertTemplate {
   id: string;
@@ -41,14 +41,6 @@ export interface CertTemplate {
   courseCount: number;
   issuedCount: number;
 }
-
-const DEFAULT_LAYOUT: Required<CertLayout> = {
-  title: "Certificate of Completion",
-  body: "This is to certify that {name} has successfully completed {course}.",
-  signatureName: "",
-  signatureTitle: "",
-  accentColor: "#4f46e5",
-};
 
 export function CertificateManager({ templates }: { templates: CertTemplate[] }) {
   const router = useRouter();
@@ -70,6 +62,22 @@ export function CertificateManager({ templates }: { templates: CertTemplate[] })
 
   return (
     <div className="space-y-4">
+      {/* Default template preview — the on-brand design used until a custom one is linked. */}
+      <div className="rounded-xl border border-border bg-card p-4 sm:p-6">
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <p className="eyebrow">Default design</p>
+            <h2 className="font-heading text-lg font-bold text-foreground">Default certificate</h2>
+            <p className="text-sm text-muted-foreground">
+              Applied automatically when a course has no custom template. Preview shown with sample data.
+            </p>
+          </div>
+        </div>
+        <div className="mx-auto max-w-3xl">
+          <CertificatePreview layout={DEFAULT_LAYOUT} vars={SAMPLE_VARS} />
+        </div>
+      </div>
+
       <div className="flex justify-end">
         <Button onClick={() => { setEditing(null); setOpen(true); }}>
           <Plus className="mr-1 h-4 w-4" /> New certificate
@@ -154,7 +162,7 @@ function CertificateDialog({
   const [body, setBody] = useState(l.body);
   const [signatureName, setSignatureName] = useState(l.signatureName);
   const [signatureTitle, setSignatureTitle] = useState(l.signatureTitle);
-  const [accentColor, setAccentColor] = useState(l.accentColor || "#4f46e5");
+  const [accentColor, setAccentColor] = useState(l.accentColor || DEFAULT_LAYOUT.accentColor);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -172,7 +180,7 @@ function CertificateDialog({
         body: body.trim() || DEFAULT_LAYOUT.body,
         signatureName: signatureName.trim(),
         signatureTitle: signatureTitle.trim(),
-        accentColor: accentColor.trim() || "#4f46e5",
+        accentColor: accentColor.trim() || DEFAULT_LAYOUT.accentColor,
       },
     });
     setBusy(false);
@@ -182,10 +190,19 @@ function CertificateDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{editing ? "Edit certificate" : "New certificate"}</DialogTitle>
         </DialogHeader>
+
+        {/* Live preview reflecting the current form values. */}
+        <div className="rounded-lg border border-border bg-muted/40 p-3">
+          <CertificatePreview
+            layout={{ title, body, signatureName, signatureTitle, accentColor }}
+            vars={SAMPLE_VARS}
+            assetUrl={assetUrl.trim() || null}
+          />
+        </div>
 
         <div className="space-y-4">
           <div className="space-y-2">
@@ -202,7 +219,7 @@ function CertificateDialog({
             <Label>Body text</Label>
             <Textarea value={body} onChange={(e) => setBody(e.target.value)} rows={3} />
             <p className="text-xs text-muted-foreground">
-              Placeholders: <code>{"{name}"}</code> <code>{"{course}"}</code> <code>{"{code}"}</code> <code>{"{region}"}</code> <code>{"{date}"}</code>
+              Placeholders: <code>{"{name}"}</code> <code>{"{course}"}</code> <code>{"{result}"}</code> <code>{"{code}"}</code> <code>{"{region}"}</code> <code>{"{date}"}</code>
             </p>
           </div>
 

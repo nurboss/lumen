@@ -5,7 +5,7 @@ import { RolePermissionEditor } from "@/components/admin/role-permission-editor"
 
 export const dynamic = "force-dynamic";
 
-const ROLES: Role[] = ["INSTRUCTOR", "AGENT", "STUDENT", "PARENT"];
+const ROLES: Role[] = ["INSTRUCTOR", "AGENT", "STUDENT"];
 
 export default async function ManageRolePermissionPage() {
   const appRoles = await prisma.appRole.findMany({ include: { permissions: true } });

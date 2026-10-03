@@ -5,7 +5,7 @@ import prisma from "@/lib/prisma";
 import { menuByRole, type Role } from "@/components/dashboard/menu-config";
 
 const schema = z.object({
-  role: z.enum(["ADMIN", "INSTRUCTOR", "AGENT", "STUDENT", "PARENT"]),
+  role: z.enum(["ADMIN", "INSTRUCTOR", "AGENT", "STUDENT"]),
   menuKey: z.string().min(1),
   canView: z.boolean(),
 });

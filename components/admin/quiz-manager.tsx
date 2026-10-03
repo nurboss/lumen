@@ -28,13 +28,10 @@ import { postJson } from "@/lib/client-api";
 interface Quiz {
   id: string;
   title: string;
-  subtitle: string | null;
   description: string | null;
-  code: string | null;
   durationMinutes: number | null;
   marks: number;
   passingMarks: number | null;
-  numberOfQuestions: number | null;
   extraRetakes: number;
   randomize: boolean;
   showResultAfterSubmit: boolean;
@@ -87,10 +84,7 @@ export function QuizManager({ quizzes, questions }: { quizzes: Quiz[]; questions
           <TableBody>
             {quizzes.map((q) => (
               <TableRow key={q.id}>
-                <TableCell className="font-medium">
-                  {q.title}
-                  {q.subtitle && <p className="text-xs text-muted-foreground">{q.subtitle}</p>}
-                </TableCell>
+                <TableCell className="font-medium">{q.title}</TableCell>
                 <TableCell>{q._count.questions}</TableCell>
                 <TableCell>{q.marks}</TableCell>
                 <TableCell>{q.durationMinutes ? `${q.durationMinutes} min` : "—"}</TableCell>
@@ -154,13 +148,10 @@ function QuizDialog({
 }) {
   const [f, setF] = useState({
     title: editing?.title ?? "",
-    subtitle: editing?.subtitle ?? "",
     description: editing?.description ?? "",
-    code: editing?.code ?? "",
     durationMinutes: editing?.durationMinutes?.toString() ?? "",
     marks: editing?.marks?.toString() ?? "0",
     passingMarks: editing?.passingMarks?.toString() ?? "",
-    numberOfQuestions: editing?.numberOfQuestions?.toString() ?? "",
     extraRetakes: editing?.extraRetakes?.toString() ?? "0",
   });
   const [randomize, setRandomize] = useState(editing?.randomize ?? false);
@@ -186,13 +177,10 @@ function QuizDialog({
       action: editing ? "update" : "create",
       ...(editing ? { id: editing.id } : {}),
       title: f.title.trim(),
-      subtitle: f.subtitle.trim(),
       description: f.description.trim(),
-      code: f.code.trim(),
       durationMinutes: f.durationMinutes ? Number(f.durationMinutes) : undefined,
       marks: Number(f.marks) || 0,
       passingMarks: f.passingMarks ? Number(f.passingMarks) : undefined,
-      numberOfQuestions: f.numberOfQuestions ? Number(f.numberOfQuestions) : undefined,
       extraRetakes: Number(f.extraRetakes) || 0,
       randomize,
       showResultAfterSubmit: showResult,
@@ -216,16 +204,6 @@ function QuizDialog({
             <Label>Title</Label>
             <Input value={f.title} onChange={(e) => set("title", e.target.value)} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Subtitle</Label>
-              <Input value={f.subtitle} onChange={(e) => set("subtitle", e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Code</Label>
-              <Input value={f.code} onChange={(e) => set("code", e.target.value)} />
-            </div>
-          </div>
           <div className="space-y-2">
             <Label>Description</Label>
             <Textarea value={f.description} onChange={(e) => set("description", e.target.value)} rows={2} />
@@ -242,10 +220,6 @@ function QuizDialog({
             <div className="space-y-2">
               <Label>Passing marks</Label>
               <Input type="number" value={f.passingMarks} onChange={(e) => set("passingMarks", e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label># Questions</Label>
-              <Input type="number" value={f.numberOfQuestions} onChange={(e) => set("numberOfQuestions", e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label>Extra retakes</Label>

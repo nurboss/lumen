@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 const SESSION_COOKIE = "lumen_session";
 
 // Prefixes that require an authenticated session.
-const PROTECTED_PREFIXES = ["/admin", "/instructor", "/agent", "/student", "/parent"];
+const PROTECTED_PREFIXES = ["/admin", "/instructor", "/agent", "/student"];
 
 // Auth pages a logged-in user shouldn't see.
 const AUTH_PAGES = ["/login", "/signUp", "/otpConfirmation", "/userInformation", "/resetPassword"];
@@ -41,7 +41,6 @@ export const config = {
     "/instructor/:path*",
     "/agent/:path*",
     "/student/:path*",
-    "/parent/:path*",
     "/login",
     "/signUp",
     "/otpConfirmation",

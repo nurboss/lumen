@@ -20,7 +20,6 @@ const rolePrefix: Record<string, string> = {
   INSTRUCTOR: "/instructor",
   AGENT: "/agent",
   STUDENT: "/student",
-  PARENT: "/parent",
 };
 
 function LoginForm() {

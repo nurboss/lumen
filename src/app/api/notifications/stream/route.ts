@@ -28,16 +28,35 @@ export async function GET() {
         }
       };
 
+      const stop = () => {
+        if (closed) return;
+        closed = true;
+        if (interval) clearInterval(interval);
+        if (keepAlive) clearInterval(keepAlive);
+        try {
+          controller.close();
+        } catch {
+          // already closed
+        }
+      };
+
       const tick = async () => {
         if (closed) return;
-        const unread = await prisma.notification.count({
-          where: { userId: user.id, read: false },
-        });
-        send("unread", { unread });
+        try {
+          const unread = await prisma.notification.count({
+            where: { userId: user.id, read: false },
+          });
+          send("unread", { unread });
+        } catch {
+          // DB connection dropped (e.g. idle timeout). End the stream so the
+          // client reconnects rather than crashing the process with an
+          // unhandled rejection.
+          stop();
+        }
       };
 
       await tick();
-      interval = setInterval(tick, 8000);
+      interval = setInterval(() => void tick(), 8000);
       // Keep-alive comment to prevent proxies from closing the connection.
       keepAlive = setInterval(() => {
         if (!closed) {

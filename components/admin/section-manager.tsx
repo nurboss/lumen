@@ -248,6 +248,10 @@ function SectionDialog({
     return kind === "UNIT" ? unitOptions : kind === "QUIZ" ? quizzes : assignments;
   }
 
+  // A section may hold only one quiz and one assignment; units are unlimited.
+  const hasQuiz = items.some((it) => it.kind === "QUIZ");
+  const hasAssignment = items.some((it) => it.kind === "ASSIGNMENT");
+
   async function save() {
     setError(null);
     if (!title.trim()) return setError("Enter a title.");
@@ -345,10 +349,10 @@ function SectionDialog({
               <Button variant="outline" size="sm" onClick={() => addItem("UNIT")}>
                 <Plus className="mr-1 h-4 w-4" /> Add unit
               </Button>
-              <Button variant="outline" size="sm" onClick={() => addItem("QUIZ")}>
+              <Button variant="outline" size="sm" onClick={() => addItem("QUIZ")} disabled={hasQuiz}>
                 <Plus className="mr-1 h-4 w-4" /> Add quiz
               </Button>
-              <Button variant="outline" size="sm" onClick={() => addItem("ASSIGNMENT")}>
+              <Button variant="outline" size="sm" onClick={() => addItem("ASSIGNMENT")} disabled={hasAssignment}>
                 <Plus className="mr-1 h-4 w-4" /> Add assignment
               </Button>
             </div>

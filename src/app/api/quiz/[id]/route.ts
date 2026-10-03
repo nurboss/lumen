@@ -22,7 +22,6 @@ export const GET = handler(async (_req: Request, ctx: { params: Promise<{ id: st
     quiz: {
       id: quiz.id,
       title: quiz.title,
-      subtitle: quiz.subtitle,
       durationMinutes: quiz.durationMinutes,
       passingMarks: quiz.passingMarks,
       questionsPerPage: quiz.questionsPerPage,

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, ClipboardCheck, ExternalLink, CheckCircle2, Inbox } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -30,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { postJson } from "@/lib/client-api";
+import { getJson, postJson } from "@/lib/client-api";
 
 type SubType = "TEXT_AREA" | "FILE" | "BOTH";
 type Unit = "SECOND" | "MINUTE" | "HOUR" | "DAY" | "WEEK" | "MONTH" | "YEAR";
@@ -38,7 +38,6 @@ type Unit = "SECOND" | "MINUTE" | "HOUR" | "DAY" | "WEEK" | "MONTH" | "YEAR";
 interface Assignment {
   id: string;
   title: string;
-  subtitle: string | null;
   description: string | null;
   timeLimit: number | null;
   durationUnit: Unit | null;
@@ -62,6 +61,7 @@ export function AssignmentManager({ assignments }: { assignments: Assignment[] }
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Assignment | null>(null);
+  const [reviewing, setReviewing] = useState<Assignment | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function remove(id: string) {
@@ -95,18 +95,36 @@ export function AssignmentManager({ assignments }: { assignments: Assignment[] }
           <TableBody>
             {assignments.map((a) => (
               <TableRow key={a.id}>
-                <TableCell className="font-medium">
-                  {a.title}
-                  {a.subtitle && <p className="text-xs text-muted-foreground">{a.subtitle}</p>}
-                </TableCell>
+                <TableCell className="font-medium">{a.title}</TableCell>
                 <TableCell>
                   <Badge variant="secondary">{SUB_LABELS[a.submissionType]}</Badge>
                 </TableCell>
                 <TableCell>{a.maximumMarks}</TableCell>
                 <TableCell>{a.timeLimit ? `${a.timeLimit} ${a.durationUnit?.toLowerCase()}` : "—"}</TableCell>
-                <TableCell>{a._count.submissions}</TableCell>
+                <TableCell>
+                  {a._count.submissions > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setReviewing(a)}
+                      className="font-medium text-primary hover:underline"
+                    >
+                      {a._count.submissions}
+                    </button>
+                  ) : (
+                    <span className="text-muted-foreground">0</span>
+                  )}
+                </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      disabled={a._count.submissions === 0}
+                      onClick={() => setReviewing(a)}
+                      aria-label="Review submissions"
+                    >
+                      <ClipboardCheck className="h-4 w-4" />
+                    </Button>
                     <Button variant="ghost" size="icon" onClick={() => { setEditing(a); setOpen(true); }} aria-label="Edit">
                       <Pencil className="h-4 w-4" />
                     </Button>
@@ -135,6 +153,214 @@ export function AssignmentManager({ assignments }: { assignments: Assignment[] }
           onSaved={() => { setOpen(false); router.refresh(); }}
         />
       )}
+
+      {reviewing && (
+        <SubmissionsDialog
+          assignment={reviewing}
+          onClose={() => { setReviewing(null); router.refresh(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+type SubStatus = "SUBMITTED" | "EVALUATED" | "RESUBMIT";
+
+interface Submission {
+  id: string;
+  contentText: string | null;
+  fileUrl: string | null;
+  marks: number | null;
+  feedback: string | null;
+  status: SubStatus;
+  createdAt: string;
+  updatedAt: string;
+  user: { id: string; fullName: string; email: string | null };
+}
+
+const STATUS_LABELS: Record<SubStatus, string> = {
+  SUBMITTED: "Awaiting review",
+  EVALUATED: "Graded",
+  RESUBMIT: "Resubmit requested",
+};
+
+function SubmissionsDialog({
+  assignment,
+  onClose,
+}: {
+  assignment: Assignment;
+  onClose: () => void;
+}) {
+  const [subs, setSubs] = useState<Submission[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    getJson<{ submissions: Submission[] }>(
+      `/api/admin/assignment/submissions?assignmentId=${assignment.id}`
+    ).then((res) => {
+      if (!alive) return;
+      if ("error" in res) setError(res.error);
+      else setSubs(res.data.submissions);
+    });
+    return () => { alive = false; };
+  }, [assignment.id]);
+
+  const pending = subs?.filter((s) => s.status === "SUBMITTED").length ?? 0;
+
+  return (
+    <Dialog open onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{assignment.title} — submissions</DialogTitle>
+        </DialogHeader>
+
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span>Max marks: <strong className="text-foreground">{assignment.maximumMarks}</strong></span>
+          {subs && (
+            <>
+              <span>·</span>
+              <span>{subs.length} total</span>
+              {pending > 0 && (
+                <>
+                  <span>·</span>
+                  <span className="text-primary">{pending} awaiting review</span>
+                </>
+              )}
+            </>
+          )}
+        </div>
+
+        {error && <p className="text-sm text-destructive">{error}</p>}
+        {!subs && !error && <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>}
+
+        {subs && subs.length === 0 && (
+          <div className="flex flex-col items-center gap-2 py-10 text-center text-muted-foreground">
+            <Inbox className="h-8 w-8" />
+            <p className="text-sm">No submissions yet.</p>
+          </div>
+        )}
+
+        <div className="space-y-3">
+          {subs?.map((s) => (
+            <SubmissionCard key={s.id} sub={s} maxMarks={assignment.maximumMarks} />
+          ))}
+        </div>
+
+        <DialogFooter showCloseButton>
+          <Button variant="outline" onClick={onClose}>Done</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function SubmissionCard({ sub, maxMarks }: { sub: Submission; maxMarks: number }) {
+  const [marks, setMarks] = useState(sub.marks?.toString() ?? "");
+  const [feedback, setFeedback] = useState(sub.feedback ?? "");
+  const [status, setStatus] = useState<SubStatus>(sub.status);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  async function save() {
+    setError(null);
+    const marksNum = marks === "" ? undefined : Number(marks);
+    if (marksNum !== undefined && (Number.isNaN(marksNum) || marksNum < 0 || marksNum > maxMarks)) {
+      return setError(`Marks must be between 0 and ${maxMarks}.`);
+    }
+    setBusy(true);
+    const res = await postJson("/api/assignment_result/update", {
+      id: sub.id,
+      marks: marksNum,
+      feedback: feedback.trim() || undefined,
+      status: status === "SUBMITTED" ? "EVALUATED" : status,
+    });
+    setBusy(false);
+    if ("error" in res) return setError(res.error);
+    setStatus(status === "SUBMITTED" ? "EVALUATED" : status);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }
+
+  return (
+    <div className="rounded-lg border border-border p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-medium text-foreground">{sub.user.fullName}</p>
+          {sub.user.email && <p className="truncate text-xs text-muted-foreground">{sub.user.email}</p>}
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Submitted {new Date(sub.createdAt).toLocaleString()}
+          </p>
+        </div>
+        <Badge variant={status === "EVALUATED" ? "default" : status === "RESUBMIT" ? "destructive" : "secondary"}>
+          {STATUS_LABELS[status]}
+        </Badge>
+      </div>
+
+      {sub.contentText && (
+        <div className="mt-3 whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-sm text-foreground">
+          {sub.contentText}
+        </div>
+      )}
+      {sub.fileUrl && (
+        <a
+          href={sub.fileUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-3 inline-flex items-center gap-1 text-sm text-primary hover:underline"
+        >
+          <ExternalLink className="h-3.5 w-3.5" /> Open submitted file
+        </a>
+      )}
+
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-[110px_1fr]">
+        <div className="space-y-1.5">
+          <Label className="text-xs">Marks (of {maxMarks})</Label>
+          <Input
+            type="number"
+            min={0}
+            max={maxMarks}
+            value={marks}
+            onChange={(e) => setMarks(e.target.value)}
+            placeholder="—"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Status</Label>
+          <Select value={status} onValueChange={(v) => setStatus(v as SubStatus)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="EVALUATED">Graded</SelectItem>
+              <SelectItem value="RESUBMIT">Request resubmission</SelectItem>
+              <SelectItem value="SUBMITTED">Awaiting review</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="mt-3 space-y-1.5">
+        <Label className="text-xs">Feedback</Label>
+        <Textarea
+          rows={2}
+          value={feedback}
+          onChange={(e) => setFeedback(e.target.value)}
+          placeholder="Optional feedback for the student…"
+        />
+      </div>
+
+      {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+
+      <div className="mt-3 flex items-center gap-3">
+        <Button size="sm" onClick={save} disabled={busy}>
+          {busy ? "Saving…" : "Save grade"}
+        </Button>
+        {saved && (
+          <span className="inline-flex items-center gap-1 text-sm text-primary">
+            <CheckCircle2 className="h-4 w-4" /> Saved & student notified
+          </span>
+        )}
+      </div>
     </div>
   );
 }
@@ -152,7 +378,6 @@ function AssignmentDialog({
 }) {
   const [f, setF] = useState({
     title: editing?.title ?? "",
-    subtitle: editing?.subtitle ?? "",
     description: editing?.description ?? "",
     timeLimit: editing?.timeLimit?.toString() ?? "",
     attachmentType: editing?.attachmentType ?? "",
@@ -177,7 +402,6 @@ function AssignmentDialog({
       action: editing ? "update" : "create",
       ...(editing ? { id: editing.id } : {}),
       title: f.title.trim(),
-      subtitle: f.subtitle.trim(),
       description: f.description.trim(),
       timeLimit: f.timeLimit ? Number(f.timeLimit) : undefined,
       durationUnit,
@@ -205,10 +429,6 @@ function AssignmentDialog({
           <div className="space-y-2">
             <Label>Title</Label>
             <Input value={f.title} onChange={(e) => set("title", e.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label>Subtitle</Label>
-            <Input value={f.subtitle} onChange={(e) => set("subtitle", e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label>Description</Label>

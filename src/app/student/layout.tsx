@@ -3,7 +3,8 @@ import { getAllowedMenuKeys } from "@/lib/rbac";
 import { DashboardShell } from "@/components/dashboard/shell";
 
 export default async function StudentLayout({ children }: { children: React.ReactNode }) {
-  const user = await requireDashboard(["STUDENT"]);
+  // Admins can enroll in and watch courses like a student.
+  const user = await requireDashboard(["STUDENT", "ADMIN"]);
   const allowedKeys = await getAllowedMenuKeys("STUDENT");
   return (
     <DashboardShell
